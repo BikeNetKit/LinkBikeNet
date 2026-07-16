@@ -62,6 +62,9 @@ def linkbikenet(
     # project graph for distance calculations
     g = ox.project_graph(g, to_crs=proj_crs)
 
+    # check which edges have existing bicycle infrastructure and assign "pbi = 1" to them, all other edges get "pbi = 0".
+    g = map_edges_to_bike_infrastructure(g)
+
     # finding parallel edges and dropping them
     print("Dropping parallel edges..")
     edges_to_drop = find_edges_to_drop(g)

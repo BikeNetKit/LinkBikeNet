@@ -1,4 +1,4 @@
-from linkbikenet import config
+from . import config
 import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
