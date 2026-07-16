@@ -73,6 +73,7 @@ def find_edges_to_drop(g):
 
 def graph_edges_to_gdf(G):
     """
+    creates a geodataframe with edges attributes from a simple nx graph
     Parameters
     ----------
     G: networkx.Graph
