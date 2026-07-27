@@ -1,0 +1,8 @@
+name: lbnenv
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.12
+  - osmnx>=2.10
+  - networkx>=3.6.1
+  - numpy>=2.4.6
