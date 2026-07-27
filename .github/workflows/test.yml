@@ -80,7 +80,7 @@ jobs:
           cache-environment: true
           cache-environment-key: W${{ env.WEEK }}
 
-      - name: Install fixbikenet
+      - name: Install linkbikenet
         run: pip install --no-build-isolation --no-deps -e .
 
       - name: "Run tests ${{ matrix.submodule.name }}"

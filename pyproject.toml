@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkbikenet"
+version = "0.5.0"
+authors = [
+  { name = "Manuel Knepper" },
+  { name = "Michael Szell" },
+]
+maintainers = [{ name = "Manuel Knepper", email = "manuel.knepper@gmx.net" }]
+license = "AGPL-3.0-or-later"
+readme = "README.md"
+description = "BikeNetKit Python package to link disconnected bicycle network components"
+keywords = ["Bicycle network planning", "Networks", "OpenStreetMap", "Urban Planning", "Urban Mobility"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Natural Language :: English",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "geopandas>=0.14",
+    "matplotlib",
+    "osmnx>=1.9.4",
+    "geojson",
+    "pip",
+    "numpy",
+]
+
+[project.urls]
+Repository = "https://github.com/BikeNetKit/LinkBikeNet"
+Issues = "https://github.com/BikeNetKit/LinkBikeNet/issues"
+
+[project.optional-dependencies]
+test = ["pytest"]
+doc = ["sphinx", "momepy"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["F401"]  # "Imported but unused: happens with packages
+
+[tool.setuptools.packages.find]
+exclude = [
+    "examples*",
+    "tests*",
+    "results",
+    "docs*",
+    "data*",
+    "scripts*",
+]
+namespaces = false
