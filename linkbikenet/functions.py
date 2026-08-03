@@ -146,7 +146,7 @@ def pair_between_largest_components(wcc):
 
     return closest_pair
 
-def pair_between_nearest_components(wcc):
+def pair_between_largest_and_closest_components(wcc):
     """
     Find the pair of nodes connecting the largest component to the
     geographically nearest remaining component.

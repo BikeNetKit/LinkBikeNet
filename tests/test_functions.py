@@ -35,4 +35,4 @@ def create_validation_pair_nearest():
     return pair
 
 def test_pair_between_nearest_components(create_test_components_nearest, create_validation_pair_nearest):
-    assert pair_between_nearest_components(create_test_components_nearest) == create_validation_pair_nearest
+    assert pair_between_largest_and_closest_components(create_test_components_nearest) == create_validation_pair_nearest
