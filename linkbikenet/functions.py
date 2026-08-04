@@ -146,7 +146,7 @@ def pair_between_largest_components(wcc):
 
     return closest_pair
 
-def pair_between_nearest_components(wcc):
+def pair_between_largest_and_closest_components(wcc):
     """
     Find the pair of nodes connecting the largest component to the
     geographically nearest remaining component.
@@ -161,7 +161,6 @@ def pair_between_nearest_components(wcc):
     closest_pair : tuple
         The two nodes that should be connected
     """
-
     largest = wcc[0]
 
     # Build KD-tree for the largest component
@@ -189,6 +188,52 @@ def pair_between_nearest_components(wcc):
                 largest_nodes[indices[i]],
                 comp_nodes[i]
             )
+    return closest_pair
+
+def pair_between_closest_components(wcc):
+    """
+    Find the closest pair of nodes belonging to two different connected
+    components.
+
+    Parameters
+    ----------
+    wcc : list of nx.Graph
+        Connected components sorted with the largest first.
+
+    Returns
+    -------
+    closest_pair : tuple
+        The two nodes that should be connected
+    """
+    closest_pair = None
+    best_distance = np.inf
+
+    for i in range(len(wcc) - 1):
+        G1 = wcc[i]
+        nodes1 = list(G1.nodes())
+        coords1 = np.array([
+            (G1.nodes[n]["x"], G1.nodes[n]["y"])
+            for n in nodes1
+        ])
+        tree = cKDTree(coords1)
+
+        for j in range(i + 1, len(wcc)):
+            G2 = wcc[j]
+            nodes2 = list(G2.nodes())
+            coords2 = np.array([
+                (G2.nodes[n]["x"], G2.nodes[n]["y"])
+                for n in nodes2
+            ])
+
+            distances, indices = tree.query(coords2)
+            k = np.argmin(distances)
+            if distances[k] < best_distance:
+                best_distance = distances[k]
+                closest_pair = (
+                    nodes1[indices[k]],
+                    nodes2[k]
+                )
+
     return closest_pair
 
 def get_correct_edgetuples(edge_gdf, nodelist):

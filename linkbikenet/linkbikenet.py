@@ -20,7 +20,7 @@ def linkbikenet(
     city_name : str
         name of the city that the analysis should be performed on
     connection_strategy : str, default="largest
-        strategy to use for connecting between components. Default is "largest", second option is "closest"
+        strategy to use for connecting between components. Default is "largest", other options are "largest-closest" and "closest"
     proj_crs : str, default '3857'
         coordinate reference system that is used to project osm data. Default is '3857' (WGS 84 / Pseudo-Mercator)
     export_data : bool, optional, default True
@@ -37,8 +37,8 @@ def linkbikenet(
         raise TypeError("city_name must be a string")
     if type(proj_crs) != str:
         raise TypeError("proj_crs must be a string")
-    if connection_strategy != "largest" and connection_strategy != "closest":
-        raise TypeError("connection_strategy must be 'largest' or 'closest'")
+    if connection_strategy != "largest" and connection_strategy != "largest-closest" and connection_strategy != "closest":
+        raise TypeError("connection_strategy must be 'largest', 'largest-closest' or 'closest'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
     if export_file_format != "geojson" and export_file_format != "gpkg":
@@ -99,11 +99,19 @@ def linkbikenet(
             closest_pairs.append(pair)
             H.add_edge(pair[0], pair[1], length=0)
 
+    elif connection_strategy == "largest-closest":
+        for i in range(to_iterate):
+            wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+            pair = pair_between_largest_and_closest_components(wcc)
+            closest_pairs.append(pair)
+            H.add_edge(pair[0], pair[1], length=0)
+
     elif connection_strategy == "closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair = pair_between_nearest_components(wcc)
+            pair = pair_between_closest_components(wcc)
             closest_pairs.append(pair)
             H.add_edge(pair[0], pair[1], length=0)
 
