@@ -1,8 +1,51 @@
 from . import config
+from . import settings
+import osmnx as ox
 import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
+
+def import_network(street_network, import_path=settings.import_path):
+    """Import and project a street network from gpkg file
+
+    For all edges between a pair of nodes u and v there must be one edge with key 0.
+
+    Parameters
+    ----------
+    street_network : str
+        The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving its undirected version via ox.io.save_graph_geopackage(). For example:
+        >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
+        >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg")
+    import_path : str, default settings.import_path
+        Path to import files.
+
+    Returns
+    -------
+    nodes : geopandas.geodataframe.GeoDataFrame
+        Extracted OSM nodes, projected
+    edges : geopandas.geodataframe.GeoDataFrame
+        Extracted OSM edges, projected
+    g_undir : networkx.classes.multigraph.MultiGraph
+        Extracted networkX graph, undirected
+    city_boundary_gdf : geopandas.geodataframe.GeoDataFrame
+        Convex hull of the street network
+    """
+
+    nodes = gpd.read_file(import_path+street_network, layer='nodes')
+    edges = gpd.read_file(import_path+street_network, layer='edges')
+
+    # Set indices as required by osmnx.convert.graph_from_gdfs
+    # See: https://osmnx.readthedocs.io/en/stable/user-reference.html#osmnx.utils_graph.graph_from_gdfs
+    nodes = nodes.set_index(['osmid'])
+    edges = edges.set_index(['u', 'v', 'key'])
+
+    g = ox.convert.graph_from_gdfs(nodes, edges)
+
+    #city_boundary_gdf = gpd.GeoDataFrame(gpd.GeoSeries(nodes.union_all().convex_hull), geometry=0, crs=nodes.crs) # We do this before the projection of nodes below
+    # To do: To be super-correct, the hull should be buffered by settings.seed_point_snap_distance (in degrees due to being unprojected)
+
+    return g
 
 def map_edges_to_bike_infrastructure(g):
     """
