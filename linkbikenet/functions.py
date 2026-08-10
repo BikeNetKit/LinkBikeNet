@@ -1,5 +1,6 @@
 from . import config
 from . import settings
+import re
 import osmnx as ox
 import geopandas as gpd
 import numpy as np
@@ -330,3 +331,31 @@ def create_gdf_with_geoms(df, edges):
     # merge multilinestring into linestring where possible (should be possible everywhere)
     gdf["geometry"] = gdf.line_merge()
     return gdf
+
+
+def slugify(s):
+    """Slugify a string
+
+    Source: https://github.com/Chalarangelo/30-seconds-of-code/blob/master/content/snippets/python/s/slugify.md
+    Note: A clean global solution would be using unidecode, but we do not want extra dependencies for this. We assume European city names in latin alphabet, some special letters like Hungarian long ö already mapped.
+
+    Parameters
+    ----------
+    s : str
+        String to slufigy
+
+    Returns
+    -------
+    s : str
+        Slugified string
+    """
+    s = s.lower().strip()
+    s = re.sub(r'[\s-]+', '', s)  # Remove white spaces, -
+    s = re.sub(r'[^\w\s-]', '', s)
+    s = re.sub(r'^-+|-+$', '', s)
+    tab = str.maketrans(
+        "áéíóúàèìùòâêîôûäëïöüǎěǐǒǔãẽĩõũăåæçčıłñňøœřßșşšůŷÿźž",
+        "aeiouaeiouaeiouaeiouaeiouaeiouaaaccilnnoorssssuyyzz"
+    )
+    s = s.translate(tab)
+    return s

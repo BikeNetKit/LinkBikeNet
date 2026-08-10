@@ -3,14 +3,16 @@ import os
 import osmnx as ox
 import networkx as nx
 import pandas as pd
+from collections import defaultdict
 
 from linkbikenet.functions import *
 
 def linkbikenet(
-        city_name,
+        city_query,
         connection_strategy = "largest",
         proj_crs = "3857",
         export_data = True,
+        city_id = None,
         export_file_format = "geojson",
         import_files={},
 ):
@@ -18,14 +20,16 @@ def linkbikenet(
     Creates links between components of bicycle networks in cities. How components are connected depends on the connection strategy that was chosen.
     Parameters
     ----------
-    city_name : str
-        name of the city that the analysis should be performed on
+    city_query : str
+        Search string for the city that the analysis should be performed on. This is the query used to fetch the data from nominatim.
     connection_strategy : str, default="largest
-        strategy to use for connecting between components. Default is "largest", other options are "largest-closest" and "closest"
+        strategy to use for connecting between components. Default is "largest", other options are "largest_closest" and "closest"
     proj_crs : str, default '3857'
         coordinate reference system that is used to project osm data. Default is '3857' (WGS 84 / Pseudo-Mercator)
     export_data : bool, optional, default True
-        If set to True, data will be saved to a file. The filename is [slug].gpkg, where slug is a string id made out of city_name
+        If set to True, data will be saved to a file. The filename is [slug].gpkg, where slug is a string id made out of city_query
+    city_id : str | None, default None
+        If set, the slugified city_id is used in the filename of the data export. For example, a city_id "Athens" will slugify into "athens" in filenames. If set to None, the slugified city_query is used in the filename of the data export. It is useful to set a city_id for cities where the city_query is not the city name, for example to set for a city_query "Municipality of Athens" the city_id to "Athens".
     export_file_format : str, optional, default "geojson"
         File format for the data export, relevant if export_data set to True. Default "geojson", also possible "gpkg". If exporting as geojson, generates extra files for street network and city boundary. If exporting as gkpg, these are added all in one file as extra layers.
     import_files: dict, default {}
@@ -42,16 +46,20 @@ def linkbikenet(
         geodataframe with the proposed links, ordered after strategy chosen
     """
     # check if user input is valid
-    if type(city_name) != str:
+    if type(city_query) != str:
         raise TypeError("city_name must be a string")
     if type(proj_crs) != str:
         raise TypeError("proj_crs must be a string")
-    if connection_strategy != "largest" and connection_strategy != "largest-closest" and connection_strategy != "closest":
+    if connection_strategy != "largest" and connection_strategy != "largest_closest" and connection_strategy != "closest":
         raise TypeError("connection_strategy must be 'largest', 'largest-closest' or 'closest'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
     if export_file_format != "geojson" and export_file_format != "gpkg":
         raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
+    if type(import_files) is not dict:
+        raise TypeError("import_files must be a dictionary")
+        # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
+    import_files = defaultdict(lambda: None, import_files)
 
 
     if import_files['street_network'] is not None:
@@ -67,7 +75,7 @@ def linkbikenet(
 
         # fetch street network from OSM
         g = ox.graph_from_place(
-            city_name, network_type='all_public', simplify=False, retain_all=True
+            city_query, network_type='all_public', simplify=False, retain_all=True
         )
 
     g = ox.simplify_graph(
@@ -115,7 +123,7 @@ def linkbikenet(
             closest_pairs.append(pair)
             H.add_edge(pair[0], pair[1], length=0)
 
-    elif connection_strategy == "largest-closest":
+    elif connection_strategy == "largest_closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
@@ -147,35 +155,40 @@ def linkbikenet(
     df['edge_list'] = df.nodelist.apply(lambda x: get_correct_edgetuples(edges_gdf, x))
     gdf = create_gdf_with_geoms(df, edges_gdf)
 
+    gdf['ordering'] = gdf.index
+
     edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
+
+    # Back to unprojected (potentially). No more calculations after here.
+    gdf.to_crs(epsg=4326, inplace=True)
+    edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
 
     # Generate export data filename
     if export_data:
-        os.makedirs("./results/", exist_ok=True)
+        os.makedirs(settings.export_path, exist_ok=True)
+        if city_id is None:
+            city_string = city_query
+        else:
+            city_string = city_id
         export_data_filename = (
-                city_name + "." + export_file_format
+                slugify(city_string) + "-linkbikenet-" + connection_strategy + "." + export_file_format
         )
 
     if export_data:
         ### save data
         print("Saving data..")
         edges_pbi_gdf.drop(["osmid"], axis=1, inplace=True)
-        city_boundary = ox.geocoder.geocode_to_gdf(city_name)
-        city_boundary.to_crs(epsg=proj_crs, inplace=True)
-        # We have meter precision, so rounding to integers is fine. Better would be to
-        # change dtypes to int, but this does not seem possible without manual looping.
-        city_boundary.geometry = city_boundary.geometry.set_precision(grid_size=1)
-        edges_pbi_gdf.geometry = edges_pbi_gdf.geometry.set_precision(grid_size=1)
-        gdf.geometry = gdf.geometry.set_precision(grid_size=1)
+        city_boundary = ox.geocoder.geocode_to_gdf(city_query)
+        city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
-            gdf.to_file("./results/" + export_data_filename, driver="GeoJSON")
-            edges_pbi_gdf.to_file("./results/" + city_name + "-existing_bike_network.geojson", driver="GeoJSON")
-            city_boundary.to_file("./results/" + city_name + "-city_boundary.geojson", driver="GeoJSON")
+            gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            city_boundary.to_file(settings.export_path + slugify(city_string) + "-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
         elif export_file_format == "gpkg":
-            gdf.to_file("./results/" + export_data_filename, driver="GPKG", layer="Identified links")
-            edges_pbi_gdf.to_file("./results/" + export_data_filename, driver="GPKG", layer="Existing bike network",
+            gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Identified links")
+            edges_pbi_gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Existing bike network",
                                   append=True)
-            city_boundary.to_file("./results/" + export_data_filename, driver="GPKG", layer="City boundary",
+            city_boundary.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="City boundary",
                                   append=True)
 
     return gdf
