@@ -2,6 +2,7 @@ from . import config
 from . import settings
 import re
 import osmnx as ox
+import networkx as nx
 import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
@@ -359,3 +360,37 @@ def slugify(s):
     )
     s = s.translate(tab)
     return s
+
+def calculate_network_statistics(H):
+    """Return total network length and largest component length.
+
+    Parameters
+    ----------
+    H: networkx.Graph
+        undirected simple graph representing the street network with weighted edges
+
+    Returns
+    -------
+    total_length: float
+        total length of the network
+    largest_length: float
+        length of the largest connected component
+    """
+
+    total_length = sum(
+        data["length"]
+        for _, _, data in H.edges(data=True)
+    )
+    components = nx.connected_components(H)
+
+    largest_component = max(components, key=lambda c: sum(
+        H[u][v]["length"]
+        for u, v in H.subgraph(c).edges()
+    ))
+
+    largest_length = sum(
+        data["length"]
+        for _, _, data in H.subgraph(largest_component).edges(data=True)
+    )
+
+    return total_length, largest_length

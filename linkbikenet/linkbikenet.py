@@ -157,6 +157,24 @@ def linkbikenet(
 
     gdf['ordering'] = gdf.index
 
+    # reset Graph
+    H = G.edge_subgraph(edges).copy()
+
+    # calculating connectivity metrics
+    print("Calculating connectivity metrics...")
+    network_lengths = []
+    lcc_lengths = []
+    edge_lengths = gdf['geometry'].length
+
+    for i in range(len(gdf)):
+        H.add_edge(closest_pairs[i][0], closest_pairs[i][1], length=edge_lengths[i])
+        total, largest = calculate_network_statistics(H)
+        network_lengths.append(total)
+        lcc_lengths.append(largest)
+
+    gdf['network_length'] = network_lengths
+    gdf['lcc_length'] = lcc_lengths
+
     edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
