@@ -149,6 +149,10 @@ def linkbikenet(
 
     edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
+    # Back to unprojected (potentially). No more calculations after here.
+    gdf.to_crs(epsg=4326, inplace=True)
+    edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
+
     # Generate export data filename
     if export_data:
         os.makedirs("./results/", exist_ok=True)
@@ -161,16 +165,11 @@ def linkbikenet(
         print("Saving data..")
         edges_pbi_gdf.drop(["osmid"], axis=1, inplace=True)
         city_boundary = ox.geocoder.geocode_to_gdf(city_name)
-        city_boundary.to_crs(epsg=proj_crs, inplace=True)
-        # We have meter precision, so rounding to integers is fine. Better would be to
-        # change dtypes to int, but this does not seem possible without manual looping.
-        city_boundary.geometry = city_boundary.geometry.set_precision(grid_size=1)
-        edges_pbi_gdf.geometry = edges_pbi_gdf.geometry.set_precision(grid_size=1)
-        gdf.geometry = gdf.geometry.set_precision(grid_size=1)
+        city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
-            gdf.to_file("./results/" + export_data_filename, driver="GeoJSON")
-            edges_pbi_gdf.to_file("./results/" + city_name + "-existing_bike_network.geojson", driver="GeoJSON")
-            city_boundary.to_file("./results/" + city_name + "-city_boundary.geojson", driver="GeoJSON")
+            gdf.to_file("./results/" + export_data_filename, driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file("./results/" + city_name + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            city_boundary.to_file("./results/" + city_name + "-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
         elif export_file_format == "gpkg":
             gdf.to_file("./results/" + export_data_filename, driver="GPKG", layer="Identified links")
             edges_pbi_gdf.to_file("./results/" + export_data_filename, driver="GPKG", layer="Existing bike network",
