@@ -150,6 +150,8 @@ def linkbikenet(
     df['edge_list'] = df.nodelist.apply(lambda x: get_correct_edgetuples(edges_gdf, x))
     gdf = create_gdf_with_geoms(df, edges_gdf)
 
+    gdf['ordering'] = gdf.index
+
     edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
