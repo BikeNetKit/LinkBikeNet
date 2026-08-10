@@ -11,7 +11,8 @@ def linkbikenet(
         connection_strategy = "largest",
         proj_crs = "3857",
         export_data = True,
-        export_file_format = "geojson"
+        export_file_format = "geojson",
+        import_files={},
 ):
     """
     Creates links between components of bicycle networks in cities. How components are connected depends on the connection strategy that was chosen.
@@ -27,6 +28,14 @@ def linkbikenet(
         If set to True, data will be saved to a file. The filename is [slug].gpkg, where slug is a string id made out of city_name
     export_file_format : str, optional, default "geojson"
         File format for the data export, relevant if export_data set to True. Default "geojson", also possible "gpkg". If exporting as geojson, generates extra files for street network and city boundary. If exporting as gkpg, these are added all in one file as extra layers.
+    import_files: dict, default {}
+        The following key:value entries can be set:
+            "street_network" : str | None, default None
+                If not set to None, the street network is loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that an undirected osmnx street network g has after saved via ox.io.save_graph_geopackage(). For example:
+                >>> ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both", "cyclestreet"]
+                >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
+                >>> g = nx.MultiGraph(ox.convert.to_digraph(g))
+                >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg").
     Returns
     -------
     gdf: geopandas.GeoDataFrame
@@ -44,16 +53,23 @@ def linkbikenet(
     if export_file_format != "geojson" and export_file_format != "gpkg":
         raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
 
-    ### downloading and preprocessing data from OSM
-    print("Downloading OSM data..")
 
-    ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both",
-                                   "cyclestreet"]
+    if import_files['street_network'] is not None:
+        print("Importing street network..")
+        g = import_network(import_files['street_network'])
 
-    # fetch street network from OSM
-    g = ox.graph_from_place(
-        city_name, network_type='all_public', simplify=False, retain_all=True
-    )
+    else:
+        ### downloading and preprocessing data from OSM
+        print("Downloading OSM data..")
+
+        ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both",
+                                       "cyclestreet"]
+
+        # fetch street network from OSM
+        g = ox.graph_from_place(
+            city_name, network_type='all_public', simplify=False, retain_all=True
+        )
+
     g = ox.simplify_graph(
         g,
         edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'],
