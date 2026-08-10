@@ -3,6 +3,7 @@ import os
 import osmnx as ox
 import networkx as nx
 import pandas as pd
+from collections import defaultdict
 
 from linkbikenet.functions import *
 
@@ -55,6 +56,10 @@ def linkbikenet(
         raise TypeError("export_data must be a boolean")
     if export_file_format != "geojson" and export_file_format != "gpkg":
         raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
+    if type(import_files) is not dict:
+        raise TypeError("import_files must be a dictionary")
+        # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
+    import_files = defaultdict(lambda: None, import_files)
 
 
     if import_files['street_network'] is not None:
