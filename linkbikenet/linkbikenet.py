@@ -110,8 +110,16 @@ def linkbikenet(
     wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
         [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
 
+    # Nodes belonging to the original largest component
+    main_component = set(wcc[0])
+
+    # Mark all edges in the original largest component as step 0
+    for u, v in H.subgraph(main_component).edges():
+        H[u][v]["lcc_step"] = 0
+
     to_iterate = len(wcc) - 1
     closest_pairs = []
+    step = 1
 
     # check which strategy was chosen and execute the corresponding algorithm
     print("Calculating links...")
@@ -120,24 +128,69 @@ def linkbikenet(
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
 
     elif connection_strategy == "largest_closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_and_closest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
 
     elif connection_strategy == "closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_closest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
 
     # find paths between node pairs so we can generate geometries
     paths = []
@@ -147,6 +200,9 @@ def linkbikenet(
         except nx.NetworkXNoPath:
             continue
         paths.append(path)
+
+    H.remove_edges_from(closest_pairs)
+    edges_pbi_gdf = graph_edges_to_gdf(H)
 
     edges_gdf = graph_edges_to_gdf(G)
     df = pd.DataFrame()
@@ -175,7 +231,10 @@ def linkbikenet(
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
 
-    edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
+    gdf['lcc_share'] = gdf['lcc_length'] / gdf['network_length']
+    gdf['lcc_gain'] = gdf['lcc_length'].diff().fillna(0)
+
+    #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
     gdf.to_crs(epsg=4326, inplace=True)
