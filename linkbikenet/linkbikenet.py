@@ -9,7 +9,7 @@ from linkbikenet.functions import *
 
 def linkbikenet(
         city_query,
-        connection_strategy = "largest",
+        connection_strategy = "largest_to_second",
         proj_crs = "3857",
         export_data = True,
         city_id = None,
@@ -23,7 +23,7 @@ def linkbikenet(
     city_query : str
         Search string for the city that the analysis should be performed on. This is the query used to fetch the data from nominatim.
     connection_strategy : str, default="largest
-        strategy to use for connecting between components. Default is "largest", other options are "largest_closest" and "closest"
+        strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components"
     proj_crs : str, default '3857'
         coordinate reference system that is used to project osm data. Default is '3857' (WGS 84 / Pseudo-Mercator)
     export_data : bool, optional, default True
@@ -50,8 +50,8 @@ def linkbikenet(
         raise TypeError("city_name must be a string")
     if type(proj_crs) != str:
         raise TypeError("proj_crs must be a string")
-    if connection_strategy != "largest" and connection_strategy != "largest_closest" and connection_strategy != "closest":
-        raise TypeError("connection_strategy must be 'largest', 'largest-closest' or 'closest'")
+    if connection_strategy != "largest_to_second" and connection_strategy != "largest_to_closest" and connection_strategy != "closest_components":
+        raise TypeError("connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
     if export_file_format != "geojson" and export_file_format != "gpkg":
@@ -123,7 +123,7 @@ def linkbikenet(
 
     # check which strategy was chosen and execute the corresponding algorithm
     print("Calculating links...")
-    if connection_strategy == "largest":
+    if connection_strategy == "largest_to_second":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
@@ -146,7 +146,7 @@ def linkbikenet(
                 H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
 
-    elif connection_strategy == "largest_closest":
+    elif connection_strategy == "largest_to_closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
@@ -169,7 +169,7 @@ def linkbikenet(
                 H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
 
-    elif connection_strategy == "closest":
+    elif connection_strategy == "closest_components":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
