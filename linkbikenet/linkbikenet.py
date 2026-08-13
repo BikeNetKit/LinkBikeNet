@@ -259,7 +259,7 @@ def linkbikenet(
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
-            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
             city_boundary.to_file(settings.export_path + slugify(city_string) + "-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
         elif export_file_format == "gpkg":
             gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Identified links")
