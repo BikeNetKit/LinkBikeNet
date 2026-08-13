@@ -394,3 +394,17 @@ def calculate_network_statistics(H):
     )
 
     return total_length, largest_length
+
+def mark_joined_component(H, component, step):
+    """Mark components when they join the largest connected component
+    Parameters
+    ----------
+    H: networkx.Graph
+        undirected simple graph representing the street network with weighted edges
+    component: networkx.Graph
+        undirected simple graph representing a component of the existing bike network
+    step: int
+        the step at which the component is connected to the largest connected component
+    """
+    for u, v in H.subgraph(component).edges():
+        H[u][v]["lcc_step"] = step

@@ -9,7 +9,7 @@ from linkbikenet.functions import *
 
 def linkbikenet(
         city_query,
-        connection_strategy = "largest",
+        connection_strategy = "largest_to_second",
         proj_crs = "3857",
         export_data = True,
         city_id = None,
@@ -23,7 +23,7 @@ def linkbikenet(
     city_query : str
         Search string for the city that the analysis should be performed on. This is the query used to fetch the data from nominatim.
     connection_strategy : str, default="largest
-        strategy to use for connecting between components. Default is "largest", other options are "largest_closest" and "closest"
+        strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components"
     proj_crs : str, default '3857'
         coordinate reference system that is used to project osm data. Default is '3857' (WGS 84 / Pseudo-Mercator)
     export_data : bool, optional, default True
@@ -50,8 +50,8 @@ def linkbikenet(
         raise TypeError("city_name must be a string")
     if type(proj_crs) != str:
         raise TypeError("proj_crs must be a string")
-    if connection_strategy != "largest" and connection_strategy != "largest_closest" and connection_strategy != "closest":
-        raise TypeError("connection_strategy must be 'largest', 'largest-closest' or 'closest'")
+    if connection_strategy != "largest_to_second" and connection_strategy != "largest_to_closest" and connection_strategy != "closest_components":
+        raise TypeError("connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
     if export_file_format != "geojson" and export_file_format != "gpkg":
@@ -110,34 +110,87 @@ def linkbikenet(
     wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
         [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
 
+    # Nodes belonging to the original largest component
+    main_component = set(wcc[0])
+
+    # Mark all edges in the original largest component as step 0
+    for u, v in H.subgraph(main_component).edges():
+        H[u][v]["lcc_step"] = 0
+
     to_iterate = len(wcc) - 1
     closest_pairs = []
+    step = 1
 
     # check which strategy was chosen and execute the corresponding algorithm
     print("Calculating links...")
-    if connection_strategy == "largest":
+    if connection_strategy == "largest_to_second":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
 
-    elif connection_strategy == "largest_closest":
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
+
+    elif connection_strategy == "largest_to_closest":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_and_closest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
 
-    elif connection_strategy == "closest":
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
+
+    elif connection_strategy == "closest_components":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_closest_components(wcc)
+            # Determine which components contain u and v
+            component_u = next(c for c in wcc if pair[0] in c)
+            component_v = next(c for c in wcc if pair[1] in c)
+            u_in_main = pair[0] in main_component
+            v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            H.add_edge(pair[0], pair[1], length=0)
+            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+            if u_in_main and not v_in_main:
+                mark_joined_component(H, component_v, step)
+                main_component.update(component_v)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+
+            elif v_in_main and not u_in_main:
+                mark_joined_component(H, component_u, step)
+                main_component.update(component_u)
+                H[pair[0]][pair[1]]["lcc_step"] = step
+            step += 1
 
     # find paths between node pairs so we can generate geometries
     paths = []
@@ -147,6 +200,9 @@ def linkbikenet(
         except nx.NetworkXNoPath:
             continue
         paths.append(path)
+
+    H.remove_edges_from(closest_pairs)
+    edges_pbi_gdf = graph_edges_to_gdf(H)
 
     edges_gdf = graph_edges_to_gdf(G)
     df = pd.DataFrame()
@@ -175,7 +231,10 @@ def linkbikenet(
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
 
-    edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
+    gdf['lcc_share'] = gdf['lcc_length'] / gdf['network_length']
+    gdf['lcc_gain'] = gdf['lcc_length'].diff().fillna(0)
+
+    #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
     gdf.to_crs(epsg=4326, inplace=True)
@@ -200,7 +259,7 @@ def linkbikenet(
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
-            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
             city_boundary.to_file(settings.export_path + slugify(city_string) + "-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
         elif export_file_format == "gpkg":
             gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Identified links")
