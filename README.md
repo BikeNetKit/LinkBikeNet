@@ -10,7 +10,7 @@ The Python package `linkbikenet` finds links between the disconnected components
 LinkBikeNet is a decision support tool for urban planners. It is also useful for proactive citizens to create a compelling vision for urban cycling in their city, and it aims to foster research on bicycle networks. 
 
 ## When to use
-GrowBikeNet works well for cities that have some bicycle infrastructure in the form of disconnected components. This is the case for most cities in Europe. Recommended example cities to link components: Budapest, Dublin, Tirana
+LinkBikeNet works well for cities that have some bicycle infrastructure in the form of disconnected components. This is the case for most cities in Europe. Recommended example cities to link components: Budapest, Dublin, Tirana
 
 For alternative approaches, consider using [GrowBikeNet](https://github.com/BikeNetKit/GrowBikeNet) or [FixBikeNet](https://github.com/BikeNetKit/FixBikeNet).
 
