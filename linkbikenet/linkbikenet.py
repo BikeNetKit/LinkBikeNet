@@ -40,6 +40,8 @@ def linkbikenet(
                 >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
                 >>> g = nx.MultiGraph(ox.convert.to_digraph(g))
                 >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg").
+            "bike_network" : str | None, default None
+                If not set to None, the existing bike network is loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that an undirected osmnx bike network has after saved via ox.io.save_graph_geopackage().
     Returns
     -------
     gdf: geopandas.GeoDataFrame
@@ -61,6 +63,11 @@ def linkbikenet(
         # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
     import_files = defaultdict(lambda: None, import_files)
 
+    if import_files['bike_network'] is not None:
+        print("Importing bike network..")
+        h = import_bike_network(import_files['bike_network'])
+        h = ox.project_graph(h, to_crs=proj_crs)
+        h = nx.Graph(h)
 
     if import_files['street_network'] is not None:
         print("Importing street network..")
@@ -104,7 +111,10 @@ def linkbikenet(
         if data.get("pbi") == 1
     ]
 
-    H = G.edge_subgraph(edges).copy()
+    if import_files['bike_network'] is not None:
+        H = h.copy()
+    else:
+        H = G.edge_subgraph(edges).copy()
 
     # computing all weakly connected components to find out how many there are. This informs the amount of loops later
     wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
@@ -211,16 +221,18 @@ def linkbikenet(
     df['edge_list'] = df.nodelist.apply(lambda x: get_correct_edgetuples(edges_gdf, x))
     gdf = create_gdf_with_geoms(df, edges_gdf)
 
-    gdf['ordering'] = gdf.index
-
     # reset Graph
-    H = G.edge_subgraph(edges).copy()
+    if import_files['bike_network'] is not None:
+        H = h.copy()
+    else:
+        H = G.edge_subgraph(edges).copy()
 
     # calculating connectivity metrics
     print("Calculating connectivity metrics...")
     network_lengths = []
     lcc_lengths = []
     edge_lengths = gdf['geometry'].length
+    initial_network_length, initial_lcc_length = calculate_network_statistics(H)
 
     for i in range(len(gdf)):
         H.add_edge(closest_pairs[i][0], closest_pairs[i][1], length=edge_lengths[i])
@@ -231,14 +243,40 @@ def linkbikenet(
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
 
+    # add initial row to represent state of network before links are added
+    initial_row = {
+        "nodelist": None,
+        "edge_list": None,
+        "geometry": None,
+        "network_length": initial_network_length,
+        "lcc_length": initial_lcc_length,
+    }
+    # Turn it into a one-row GeoDataFrame
+    initial_gdf = gpd.GeoDataFrame(
+        [initial_row],
+        geometry="geometry",
+        crs=gdf.crs
+    )
+
+    # Put step 0 at the beginning
+    gdf = pd.concat(
+        [initial_gdf, gdf],
+        ignore_index=True
+    )
+
     gdf['lcc_share'] = gdf['lcc_length'] / gdf['network_length']
     gdf['lcc_gain'] = gdf['lcc_length'].diff().fillna(0)
+
+    gdf['ordering'] = gdf.index
 
     #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
     gdf.to_crs(epsg=4326, inplace=True)
-    edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
+    if import_files['bike_network'] is not None:
+        edges_pbi_gdf.set_crs(epsg=4326, allow_override=True, inplace=True)
+    else:
+        edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
 
     # Generate export data filename
     if export_data:
@@ -259,7 +297,7 @@ def linkbikenet(
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
-            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
             city_boundary.to_file(settings.export_path + slugify(city_string) + "-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
         elif export_file_format == "gpkg":
             gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Identified links")
