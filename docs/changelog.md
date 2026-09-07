@@ -1,3 +1,7 @@
+## Version 0.7.0 (2026-09-07)
+
+- 🐛 implemented automatic crs matching to ensure correct edge lengths
+
 ## Version 0.6.0 (2026-08-19)
 
 - ✨ implemented closest-to-closest algorithm
