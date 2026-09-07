@@ -10,7 +10,6 @@ from linkbikenet.functions import *
 def linkbikenet(
         city_query,
         connection_strategy = "largest_to_second",
-        proj_crs = "3857",
         export_data = True,
         city_id = None,
         export_file_format = "geojson",
@@ -24,8 +23,6 @@ def linkbikenet(
         Search string for the city that the analysis should be performed on. This is the query used to fetch the data from nominatim.
     connection_strategy : str, default="largest
         strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components"
-    proj_crs : str, default '3857'
-        coordinate reference system that is used to project osm data. Default is '3857' (WGS 84 / Pseudo-Mercator)
     export_data : bool, optional, default True
         If set to True, data will be saved to a file. The filename is [slug].gpkg, where slug is a string id made out of city_query
     city_id : str | None, default None
@@ -50,8 +47,6 @@ def linkbikenet(
     # check if user input is valid
     if type(city_query) != str:
         raise TypeError("city_name must be a string")
-    if type(proj_crs) != str:
-        raise TypeError("proj_crs must be a string")
     if connection_strategy != "largest_to_second" and connection_strategy != "largest_to_closest" and connection_strategy != "closest_components":
         raise TypeError("connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
@@ -66,6 +61,8 @@ def linkbikenet(
     if import_files['bike_network'] is not None:
         print("Importing bike network..")
         h = import_bike_network(import_files['bike_network'])
+        nodes_h = ox.graph_to_gdfs(h, nodes=True, edges=False, node_geometry=True)
+        proj_crs = resolve_crs_calculations(nodes_h, settings.crs_projected)
         h = ox.project_graph(h, to_crs=proj_crs)
         h = nx.Graph(h)
 
@@ -91,6 +88,8 @@ def linkbikenet(
     )
 
     # project graph for distance calculations
+    nodes_g = ox.graph_to_gdfs(g, nodes=True, edges=False, node_geometry=True)
+    proj_crs = resolve_crs_calculations(nodes_g, settings.crs_projected)
     g = ox.project_graph(g, to_crs=proj_crs)
 
     # check which edges have existing bicycle infrastructure and assign "pbi = 1" to them, all other edges get "pbi = 0".

@@ -2,4 +2,4 @@
 
 import_path = "./"
 export_path = "./results/"
-crs_projected = '3857'
+crs_projected = 'auto'
