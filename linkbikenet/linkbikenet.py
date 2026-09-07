@@ -31,7 +31,12 @@ def linkbikenet(
         File format for the data export, relevant if export_data set to True. Default "geojson", also possible "gpkg". If exporting as geojson, generates extra files for street network and city boundary. If exporting as gkpg, these are added all in one file as extra layers.
     import_files: dict, default {}
         The following key:value entries can be set:
-            "street_network" : str | None, default None
+            - 'city_boundary' : None or str, default None
+            If not set to None, the study area is selected from the
+            (Multi)Polygon provided in the city_boundary shape or gpkg file,
+            ideally in unprojected latitude-longitude degrees (EPSG:4326), but
+            EPSG:3857 also works.
+            -"street_network" : str | None, default None
                 If not set to None, the street network is loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that an undirected osmnx street network g has after saved via ox.io.save_graph_geopackage(). For example:
                 >>> ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both", "cyclestreet"]
                 >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
@@ -57,6 +62,13 @@ def linkbikenet(
         raise TypeError("import_files must be a dictionary")
         # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
     import_files = defaultdict(lambda: None, import_files)
+
+    # Get city boundary
+    if import_files['city_boundary']:
+        city_boundary_shp = gpd.read_file(settings.import_path + import_files['city_boundary'])
+        city_boundary = city_boundary_shp.iloc[[0]]
+    else:
+        city_boundary = ox.geocoder.geocode_to_gdf(city_query)
 
     if import_files['bike_network'] is not None:
         print("Importing bike network..")
@@ -292,7 +304,6 @@ def linkbikenet(
         ### save data
         print("Saving data..")
         edges_pbi_gdf.drop(["osmid"], axis=1, inplace=True)
-        city_boundary = ox.geocoder.geocode_to_gdf(city_query)
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
