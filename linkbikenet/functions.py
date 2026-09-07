@@ -85,6 +85,28 @@ def import_bike_network(bike_network, import_path=settings.import_path):
 
     return h
 
+def resolve_crs_calculations(gdf, crs_projected=settings.crs_projected):
+    """ Resolve settings.crs_projected = 'auto'
+
+    Parameters
+    ----------
+    gdf : geopandas.geodataframe.GeoDataFrame
+        A geodataframe from which to estimate the UTM CRS
+    crs_projected : str
+        A given CRS, or 'auto'. If 'auto', it is resolved to an estimated UTM.
+        In this case, it also sets `settings.crs_projected` to the UTM.
+
+    Returns
+    -------
+    crs_projected : str
+        If it was set to 'auto', the estimated UTM, otherwise identical to the
+        input `crs_calculations`.
+    """
+    if crs_projected == 'auto':
+        crs_projected = gdf.estimate_utm_crs()
+        settings.crs_projected = crs_projected
+    return crs_projected
+
 def map_edges_to_bike_infrastructure(g):
     """
     map if edges in graph have bike infrastructure as specified in config.py
