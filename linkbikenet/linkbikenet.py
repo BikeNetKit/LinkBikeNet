@@ -141,7 +141,6 @@ def linkbikenet(
     progress_bar.close()
 
     # finding parallel edges and dropping them
-    #print("Dropping parallel edges..")
     edges_to_drop = find_edges_to_drop(g)
     g.remove_edges_from(edges_to_drop)
 
@@ -177,7 +176,6 @@ def linkbikenet(
 
     progress_bar = initialize_progress_bar("Postprocess data", 5)
     # check which strategy was chosen and execute the corresponding algorithm
-    #print("Calculating links...")
     if connection_strategy == "largest_to_second":
         for i in range(to_iterate):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
@@ -275,7 +273,6 @@ def linkbikenet(
         H = G.edge_subgraph(edges).copy()
 
     # calculating connectivity metrics
-    #print("Calculating connectivity metrics...")
     network_lengths = []
     lcc_lengths = []
     edge_lengths = gdf['geometry'].length
@@ -341,7 +338,6 @@ def linkbikenet(
 
     if export_data:
         ### save data
-        #print("Saving data..")
         edges_pbi_gdf.drop(["osmid"], axis=1, inplace=True)
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
