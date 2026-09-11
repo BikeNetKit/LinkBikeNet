@@ -3,3 +3,5 @@
 import_path = "./"
 export_path = "./results/"
 crs_projected = 'auto'
+_PROGRESS_BAR_DESC_LENGTH = 24
+_PROGRESS_BAR_LENGTH = 23

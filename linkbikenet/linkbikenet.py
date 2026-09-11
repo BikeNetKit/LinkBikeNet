@@ -6,6 +6,8 @@ import networkx as nx
 import pandas as pd
 import geopandas as gpd
 from collections import defaultdict
+from tqdm.auto import tqdm
+import time
 
 from linkbikenet.functions import (
     import_network,
@@ -73,6 +75,8 @@ def linkbikenet(
         raise TypeError("connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
+    if type(city_id) is not str:
+        raise TypeError("city_id must be a string")
     if export_file_format != "geojson" and export_file_format != "gpkg":
         raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
     if type(import_files) is not dict:
