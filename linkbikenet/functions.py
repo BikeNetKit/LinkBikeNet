@@ -7,6 +7,18 @@ import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
+from tqdm.auto import tqdm
+
+def initialize_progress_bar(desc_string, total=1, unit="step"):
+    """Initialize tqdm progress bar.
+    """
+    return tqdm(
+        desc=("{:<"+str(settings._PROGRESS_BAR_DESC_LENGTH)+"}").format(desc_string),
+        total=total,
+        unit=unit,
+        bar_format='{l_bar}{bar:'+str(settings._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+        disable=settings.silent,
+    )
 
 def import_network(street_network):
     """Import and project a street network from gpkg file
