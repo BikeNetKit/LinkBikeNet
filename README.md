@@ -2,6 +2,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/linkbikenet?color=10d249)](https://pypi.org/project/LinkBikeNet/)
 [![Test](https://github.com/BikeNetKit/LinkBikeNet/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/BikeNetKit/LinkBikeNet/actions/workflows/test.yml)
+[![Mastodon Follow](https://img.shields.io/mastodon/follow/116693348622375119?domain=https%3A%2F%2Ffosstodon.org)](https://fosstodon.org/@BikeNetKit)
 
 The Python package `linkbikenet` finds links between the disconnected components in a city's bicycle network. You can download street and bike network data with a single line of code, simulate different bicycle network linking scenarios, and export and plot the resulting prioritized linking steps.
 
