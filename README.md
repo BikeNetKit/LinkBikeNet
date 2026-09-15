@@ -34,11 +34,10 @@ In development.
 ## Docs
 In development.
 
-## Source
+## Origin
 The source code builds on [the code from the research paper](https://github.com/nateraluis/bicycle-network-growth) _Data-driven strategies for optimal bicycle network growth_.
 
 **Publication**: [https://doi.org/10.1098/rsos.201130](https://doi.org/10.1098/rsos.201130)
-
 
 ## How to cite
 If you use LinkBikeNet, please cite the paper:
