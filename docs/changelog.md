@@ -1,3 +1,12 @@
+## Version 0.7.2 (2026-09-25)
+
+- ✨ added boundary file import
+- ✨ added tqdm progress bars
+
+## Version 0.7.1 (2026-09-07)
+
+- 🐛 remove import path from function definition
+
 ## Version 0.7.0 (2026-09-07)
 
 - 🐛 implemented automatic crs matching to ensure correct edge lengths
