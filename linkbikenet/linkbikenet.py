@@ -312,6 +312,13 @@ def linkbikenet(
     gdf['lcc_share'] = gdf['lcc_length'] / gdf['network_length']
     gdf['lcc_gain'] = gdf['lcc_length'].diff().fillna(0)
 
+    # Round
+    gdf['network_length'] = gdf['network_length'].astype(int)
+    gdf['lcc_length'] = gdf['lcc_length'].astype(int)
+    gdf['lcc_gain'] = gdf['lcc_gain'].astype(int)
+    gdf['lcc_share'] = gdf['lcc_share'].round(4)
+    edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
+
     gdf['ordering'] = gdf.index
     progress_bar.update(1)
     progress_bar.close()
@@ -337,8 +344,12 @@ def linkbikenet(
         )
 
     if export_data:
-        ### save data
-        edges_pbi_gdf.drop(["osmid"], axis=1, inplace=True)
+        # Cleanup
+        keepedgedata = ['length', 'lcc_step', 'geometry', 'u', 'v']
+        for p in edges_pbi_gdf.keys():
+            if p not in keepedgedata:
+                del edges_pbi_gdf[p] 
+
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             progress_bar = initialize_progress_bar("Exporting data", 3, "file")
