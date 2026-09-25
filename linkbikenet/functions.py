@@ -7,7 +7,7 @@ import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 def initialize_progress_bar(desc_string, total=1, unit="step"):
     """Initialize tqdm progress bar.
@@ -465,6 +465,7 @@ def calculate_network_statistics(H):
 
 def mark_joined_component(H, component, step):
     """Mark components when they join the largest connected component
+    
     Parameters
     ----------
     H: networkx.Graph
