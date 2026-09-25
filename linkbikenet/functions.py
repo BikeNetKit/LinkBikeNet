@@ -7,7 +7,7 @@ import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 def initialize_progress_bar(desc_string, total=1, unit="step"):
     """Initialize tqdm progress bar.
@@ -134,15 +134,7 @@ def map_edges_to_bike_infrastructure(g):
 
     # add binary edge attribute "pbi" (protected bike infra: True/False)
     for edge in g.edges(keys=True):
-        if g.edges[edge].get("cycleway") in config.cycleway_bike_infra:
-            g.edges[edge]["pbi"] = 1
-        elif g.edges[edge].get("cycleway:right") in config.cycleway_right_bike_infra:
-            g.edges[edge]["pbi"] = 1
-        elif g.edges[edge].get("cycleway:left") in config.cycleway_left_bike_infra:
-            g.edges[edge]["pbi"] = 1
-        elif g.edges[edge].get("cycleway:both") in config.cycleway_both_bike_infra:
-            g.edges[edge]["pbi"] = 1
-        elif g.edges[edge].get("highway") in config.highway_bike_infra:
+        if g.edges[edge].get("cycleway") in config.cycleway_bike_infra or g.edges[edge].get("cycleway:right") in config.cycleway_right_bike_infra or g.edges[edge].get("cycleway:left") in config.cycleway_left_bike_infra or g.edges[edge].get("cycleway:both") in config.cycleway_both_bike_infra or g.edges[edge].get("highway") in config.highway_bike_infra or g.edges[edge].get("cyclestreet") or g.edges[edge].get("bicycle_road") or g.edges[edge].get("highway") in config.highway_bike_infra_extended and g.edges[edge].get("bicycle") in config.bicycle_bike_infra and g.edges[edge].get("access") != 'private':
             g.edges[edge]["pbi"] = 1
         else:
             g.edges[edge]["pbi"] = 0
@@ -465,6 +457,7 @@ def calculate_network_statistics(H):
 
 def mark_joined_component(H, component, step):
     """Mark components when they join the largest connected component
+    
     Parameters
     ----------
     H: networkx.Graph

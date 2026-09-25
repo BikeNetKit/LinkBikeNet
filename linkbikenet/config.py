@@ -21,3 +21,15 @@ highway_bike_infra = [
     'cycleway',
     'living_street'
 ]
+
+highway_bike_infra_extended = [
+    'path', 
+    'pedestrian',
+    'footway'
+]
+
+bicycle_bike_infra = [
+    'designated',
+    'yes',
+    'permissive'
+]

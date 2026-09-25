@@ -6,7 +6,7 @@ import networkx as nx
 import pandas as pd
 import geopandas as gpd
 from collections import defaultdict
-from tqdm.auto import tqdm
+from tqdm import tqdm
 import time
 
 from linkbikenet.functions import (
@@ -66,7 +66,7 @@ def linkbikenet(
                 If not set to None, the existing bike network is loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that an undirected osmnx bike network has after saved via ox.io.save_graph_geopackage().
     Returns
     -------
-    gdf: geopandas.GeoDataFrame
+    gdf : geopandas.GeoDataFrame
         geodataframe with the proposed links, ordered after strategy chosen
     """
 
