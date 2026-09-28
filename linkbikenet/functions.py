@@ -10,6 +10,27 @@ from scipy.spatial import cKDTree
 from shapely.geometry import LineString
 from tqdm import tqdm
 
+def _print_header(city_query, connection_strategy):
+    """Print header.
+    """
+    if not settings.silent:
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
+        print("RUNNING LINKBIKENET FOR CITY: " + city_query)
+        print(connection_strategy)
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╮")
+
+def _print_footer(export_data, endtime, starttime):
+    """Print footer.
+    """
+    if not settings.silent:
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╯")
+        if export_data:
+            print("Data exported to "+settings.export_path['results'])
+        if export_data or export_plots:
+            print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-")
+        print("FINISHED IN " + str(datetime.timedelta(seconds = round(endtime - starttime))))
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
+
 def initialize_progress_bar(desc_string, total=1, unit="step"):
     """Initialize tqdm progress bar.
     """

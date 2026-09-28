@@ -21,6 +21,8 @@ from linkbikenet.functions import (
     pair_between_largest_components,
     pair_between_largest_and_closest_components,
     pair_between_closest_components,
+    _print_footer,
+    _print_header,
     get_correct_edgetuples,
     create_gdf_with_geoms,
     shortest_path_components,
@@ -71,8 +73,9 @@ def linkbikenet(
     gdf : geopandas.GeoDataFrame
         geodataframe with the proposed links, ordered after strategy chosen
     """
-
+    # Setup
     starttime = time.time()
+
     # check if user input is valid
     if type(city_query) != str:
         raise TypeError("city_name must be a string")
@@ -89,6 +92,8 @@ def linkbikenet(
         raise TypeError("import_files must be a dictionary")
         # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
     import_files = defaultdict(lambda: None, import_files)
+
+    _print_header(city_query, connection_strategy)
 
     # Get city boundary
     if import_files['city_boundary']:
@@ -177,7 +182,6 @@ def linkbikenet(
     progress_bar.update(1)
     progress_bar.close()
 
-
     
     closest_pairs = []
     closest_components = []
@@ -187,7 +191,7 @@ def linkbikenet(
     if connection_strategy == "largest_to_second":
         for i in tqdm(
                 range(len(wcc)-1),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
                 leave=True,
                 unit="component",
                 total=len(wcc)-1,
@@ -218,7 +222,7 @@ def linkbikenet(
     elif connection_strategy == "largest_to_closest":
         for i in tqdm(
                 range(len(wcc)-1),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
                 leave=True,
                 unit="component",
                 total=len(wcc)-1,
@@ -249,7 +253,7 @@ def linkbikenet(
     elif connection_strategy == "closest_components":
         for i in tqdm(
                 range(len(wcc)-1),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
                 leave=True,
                 unit="component",
                 total=len(wcc)-1,
@@ -277,7 +281,7 @@ def linkbikenet(
                 H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
 
-    progress_bar = initialize_progress_bar("Postprocess data", 4)
+    progress_bar = initialize_progress_bar("Postprocessing data", 4)
 
     H.remove_edges_from(closest_pairs)
     edges_pbi_gdf = graph_edges_to_gdf(H)
@@ -375,7 +379,7 @@ def linkbikenet(
 
     # Generate export data filename
     if export_data:
-        os.makedirs(settings.export_path, exist_ok=True)
+        os.makedirs(settings.export_path['results'], exist_ok=True)
         if city_id is None:
             city_string = city_query
         else:
@@ -394,20 +398,24 @@ def linkbikenet(
         city_boundary.to_crs(epsg=4326, inplace=True)
         if export_file_format == "geojson":
             progress_bar = initialize_progress_bar("Exporting data", 3, "file")
-            gdf.to_file(settings.export_path + export_data_filename, driver="GeoJSON", RFC7946="YES")
+            gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
             progress_bar.update(1)
-            edges_pbi_gdf.to_file(settings.export_path + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+            edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
             progress_bar.update(1)
-            city_boundary.to_file(settings.export_path + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
+            city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
             progress_bar.update(1)
         elif export_file_format == "gpkg":
             progress_bar = initialize_progress_bar("Exporting data", 1, "file")
-            gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Identified links")
-            edges_pbi_gdf.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="Existing bike network",
+            gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Identified links")
+            edges_pbi_gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Existing bike network",
                                   append=True)
-            city_boundary.to_file(settings.export_path + export_data_filename, driver="GPKG", layer="City boundary",
+            city_boundary.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="City boundary",
                                   append=True)
             progress_bar.update(1)
         progress_bar.close()
+
+    # Cleanup, finalize
+    endtime = time.time()
+    _print_footer(export_data, endtime, starttime)
 
     return gdf
