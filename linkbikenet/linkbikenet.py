@@ -1,5 +1,6 @@
 # imports
 from . import settings
+from . import constants
 import os
 import osmnx as ox
 import networkx as nx
@@ -122,7 +123,7 @@ def linkbikenet(
     progress_bar.update(1)
     progress_bar.close()
 
-    progress_bar = initialize_progress_bar("Processing network", 2)
+    progress_bar = initialize_progress_bar("Processing network", 3)
     g = ox.simplify_graph(
         g,
         edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'],
@@ -139,11 +140,13 @@ def linkbikenet(
     g = map_edges_to_bike_infrastructure(g)
 
     progress_bar.update(1)
-    progress_bar.close()
 
-    # finding parallel edges and dropping them
-    edges_to_drop = find_edges_to_drop(g)
-    g.remove_edges_from(edges_to_drop)
+    # progress_bar = initialize_progress_bar("Drop parallel edges")
+    # # finding parallel edges and dropping them
+    # edges_to_drop = find_edges_to_drop(g)
+    # g.remove_edges_from(edges_to_drop)
+    # progress_bar.update(1)
+    # progress_bar.close()
 
     # Capital-G: the Graph() object we will be working with from now on
     G = nx.Graph(g)
@@ -171,15 +174,26 @@ def linkbikenet(
     for u, v in H.subgraph(main_component).edges():
         H[u][v]["lcc_step"] = 0
 
-    to_iterate = len(wcc) - 1
+    progress_bar.update(1)
+    progress_bar.close()
+
+
+    
     closest_pairs = []
     closest_components = []
     step = 1
 
-    progress_bar = initialize_progress_bar("Postprocess data", 5)
     # check which strategy was chosen and execute the corresponding algorithm
     if connection_strategy == "largest_to_second":
-        for i in range(to_iterate):
+        for i in tqdm(
+                range(len(wcc)-1),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                leave=True,
+                unit="component",
+                total=len(wcc)-1,
+                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+                disable=settings.silent,
+            ):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_components(wcc)
@@ -195,7 +209,6 @@ def linkbikenet(
                 mark_joined_component(H, component_v, step)
                 main_component.update(component_v)
                 H[pair[0]][pair[1]]["lcc_step"] = step
-
             elif v_in_main and not u_in_main:
                 mark_joined_component(H, component_u, step)
                 main_component.update(component_u)
@@ -203,7 +216,15 @@ def linkbikenet(
             step += 1
 
     elif connection_strategy == "largest_to_closest":
-        for i in range(to_iterate):
+        for i in tqdm(
+                range(len(wcc)-1),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                leave=True,
+                unit="component",
+                total=len(wcc)-1,
+                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+                disable=settings.silent,
+            ):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_largest_and_closest_components(wcc)
@@ -219,7 +240,6 @@ def linkbikenet(
                 mark_joined_component(H, component_v, step)
                 main_component.update(component_v)
                 H[pair[0]][pair[1]]["lcc_step"] = step
-
             elif v_in_main and not u_in_main:
                 mark_joined_component(H, component_u, step)
                 main_component.update(component_u)
@@ -227,7 +247,15 @@ def linkbikenet(
             step += 1
 
     elif connection_strategy == "closest_components":
-        for i in range(to_iterate):
+        for i in tqdm(
+                range(len(wcc)-1),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Link components"),
+                leave=True,
+                unit="component",
+                total=len(wcc)-1,
+                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+                disable=settings.silent,
+            ):
             wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair = pair_between_closest_components(wcc)
@@ -243,13 +271,13 @@ def linkbikenet(
                 mark_joined_component(H, component_v, step)
                 main_component.update(component_v)
                 H[pair[0]][pair[1]]["lcc_step"] = step
-
             elif v_in_main and not u_in_main:
                 mark_joined_component(H, component_u, step)
                 main_component.update(component_u)
                 H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
-    progress_bar.update(1)
+
+    progress_bar = initialize_progress_bar("Postprocess data", 4)
 
     H.remove_edges_from(closest_pairs)
     edges_pbi_gdf = graph_edges_to_gdf(H)
