@@ -218,6 +218,7 @@ def pair_between_largest_components(wcc):
     """
     Find the closest pair of nodes between the two largest components
     using a KD-tree.
+
     Parameters
     ----------
     components : list of networkx.Graph
@@ -469,3 +470,36 @@ def mark_joined_component(H, component, step):
     """
     for u, v in H.subgraph(component).edges():
         H[u][v]["lcc_step"] = step
+
+def shortest_path_components(G, pair_components, path):
+    """Starting from an initial shortest path between a pair of nodes in two 
+    different components, identify the two nodes and their shortest path which
+    is truly the shortest path between the two components.
+    
+    Parameters
+    ----------
+    G : networkx.Graph
+        Undirected simple graph representing the street network with weighted edges.
+    pair_components : list
+        Pair of networkx graph components. 
+    path : list
+        List of node ids making up the shortest path of two nodes from the two 
+        components.
+    
+    Returns
+    -------
+    path : list
+        List of node ids making up the shortest path between the two components.
+
+    """
+    u = dict(pair_components[0].nodes(data=False))
+    v = dict(pair_components[1].nodes(data=False))
+    last_nodeindex_in_u = 0
+    first_nodeindex_in_v = -1
+    for i in range(len(path)): # Iterate from u's node
+        if path[i] in u:
+            last_nodeindex_in_u = i
+        elif path[i] in v: # We have reached the other component
+            first_nodeindex_in_v = i
+            break
+    return path[last_nodeindex_in_u:first_nodeindex_in_v+1]

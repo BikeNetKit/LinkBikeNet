@@ -22,18 +22,19 @@ from linkbikenet.functions import (
     pair_between_closest_components,
     get_correct_edgetuples,
     create_gdf_with_geoms,
+    shortest_path_components,
     slugify,
     calculate_network_statistics,
-    mark_joined_component
-    )
+    mark_joined_component,
+)
 
 def linkbikenet(
-        city_query,
-        connection_strategy = "largest_to_second",
-        export_data = True,
-        city_id = None,
-        export_file_format = "geojson",
-        import_files={},
+    city_query,
+    connection_strategy = "largest_to_closest",
+    export_data = True,
+    city_id = None,
+    export_file_format = "geojson",
+    import_files={},
 ):
     """
     Creates links between components of bicycle networks in cities. How components are connected depends on the connection strategy that was chosen.
@@ -172,6 +173,7 @@ def linkbikenet(
 
     to_iterate = len(wcc) - 1
     closest_pairs = []
+    closest_components = []
     step = 1
 
     progress_bar = initialize_progress_bar("Postprocess data", 5)
@@ -187,6 +189,7 @@ def linkbikenet(
             u_in_main = pair[0] in main_component
             v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
+            closest_components.append([component_u, component_v])
             H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
             if u_in_main and not v_in_main:
                 mark_joined_component(H, component_v, step)
@@ -210,6 +213,7 @@ def linkbikenet(
             u_in_main = pair[0] in main_component
             v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
+            closest_components.append([component_u, component_v])
             H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
             if u_in_main and not v_in_main:
                 mark_joined_component(H, component_v, step)
@@ -233,6 +237,7 @@ def linkbikenet(
             u_in_main = pair[0] in main_component
             v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
+            closest_components.append([component_u, component_v])
             H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
             if u_in_main and not v_in_main:
                 mark_joined_component(H, component_v, step)
@@ -245,11 +250,18 @@ def linkbikenet(
                 H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
     progress_bar.update(1)
+
     # find paths between node pairs so we can generate geometries
     paths = []
-    for pair in closest_pairs:
+    for i, (pair_nodes, pair_components) in enumerate(zip(closest_pairs, closest_components)):
         try:
-            path = nx.shortest_path(G, pair[0], pair[1], weight='length')
+            path = nx.shortest_path(G, pair_nodes[0], pair_nodes[1], weight='length')
+            # We have so far only the shortest path between a pair of nodes 
+            # between two components that have shortest euclidian distance. But 
+            # there could be another pair of nodes between the two components 
+            # that have shorter shortest paths. Find this node pair:
+            path = shortest_path_components(G, pair_components, path)
+            closest_pairs[i] = [path[0], path[-1]]
         except nx.NetworkXNoPath:
             continue
         paths.append(path)
