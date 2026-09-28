@@ -5,10 +5,14 @@ import re
 import osmnx as ox
 import networkx as nx
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
 from tqdm import tqdm
+import datetime
+pd.set_option('display.max_columns', None) # for debugging
+import sys  # noqa: F401, use sys.exit() for debugging
 
 def _print_header(city_query, connection_strategy):
     """Print header.
@@ -289,19 +293,18 @@ def pair_between_largest_and_closest_components(wcc):
     closest_pair : tuple
         The two nodes that should be connected
     """
-    largest = wcc[0]
+    lcc = wcc[0]
 
     # Build KD-tree for the largest component
-    largest_nodes = list(largest.nodes())
-    largest_xy = np.array([
-        (largest.nodes[n]["x"], largest.nodes[n]["y"])
-        for n in largest_nodes
+    lcc_nodes = list(lcc.nodes())
+    lcc_xy = np.array([
+        (lcc.nodes[n]["x"], lcc.nodes[n]["y"])
+        for n in lcc_nodes
     ])
-    tree = cKDTree(largest_xy)
+    tree = cKDTree(lcc_xy)
 
-    closest_pair = None
-    best_distance = np.inf
-    # Compare every remaining component to the largest
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
+    # Compare every remaining component to the lcc
     for comp in wcc[1:]:
         comp_nodes = list(comp.nodes())
         comp_xy = np.array([
@@ -310,13 +313,25 @@ def pair_between_largest_and_closest_components(wcc):
         ])
         distances, indices = tree.query(comp_xy)
         i = np.argmin(distances)
-        if distances[i] < best_distance:
-            best_distance = distances[i]
-            closest_pair = (
-                largest_nodes[indices[i]],
-                comp_nodes[i]
-            )
-    return closest_pair
+        closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]],comp_nodes[i],distances[i],lcc,comp]
+    return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl')
+
+def shortest_path_components_from_candidates(G, pair_candidates):
+
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_nw','path','lcc','comp'])
+    for index, row in pair_candidates.iterrows():
+        try:
+            path_initial = nx.shortest_path(G, row['lcc_nodeid'], row['comp_nodeid'], weight='length')
+            # We have so far only the shortest path between a pair of nodes 
+            # between two components that have shortest euclidian distance. But 
+            # there could be another pair of nodes between the two components 
+            # that have shorter shortest paths. Find this node pair:
+            path = shortest_path_components(G, [row['lcc'],row['comp']], path_initial)
+            closest_pairs.loc[len(closest_pairs)] = [path[0], path[-1], float(nx.shortest_path_length(G, path[0], path[-1], weight='length')), path, row['lcc'],row['comp']]
+        except nx.NetworkXNoPath:
+            closest_pairs.loc[len(closest_pairs)] = [row['lcc_nodeid'], row['comp_nodeid'], np.inf, None, row['lcc'], row['comp']]
+    return closest_pairs.nsmallest(1,'distance_nw').iloc[0]
+
 
 def pair_between_closest_components(wcc):
     """
@@ -390,6 +405,17 @@ def get_correct_edgetuples(edge_gdf, nodelist):
         else:
             edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
     return edgelist_final
+
+def path_to_edges(nodelist, distlist, step):
+    # to do: add x,y
+    if type(distlist) is not list:
+        distlist = [distlist]
+    edgelist_prelim = zip(nodelist, nodelist[1:])
+    edgelist_final = []
+    for edge_prelim, edge_data in zip(edgelist_prelim,distlist):
+        edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0], {'length': edge_data, 'lcc_step': step}]))
+    return edgelist_final
+
 
 def create_gdf_with_geoms(df, edges):
     """

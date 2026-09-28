@@ -9,6 +9,8 @@ import geopandas as gpd
 from collections import defaultdict
 from tqdm import tqdm
 import time
+pd.set_option('display.max_columns', None) # for debugging
+import sys  # noqa: F401, use sys.exit() for debugging
 
 from linkbikenet.functions import (
     initialize_progress_bar,
@@ -29,6 +31,8 @@ from linkbikenet.functions import (
     slugify,
     calculate_network_statistics,
     mark_joined_component,
+    shortest_path_components_from_candidates,
+    path_to_edges,
 )
 
 def linkbikenet(
@@ -168,12 +172,12 @@ def linkbikenet(
     else:
         H = G.edge_subgraph(edges).copy()
 
-    # computing all weakly connected components to find out how many there are. This informs the amount of loops later
-    wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+    # Compute all connected components and sort them by length, descending
+    components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
         [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
 
     # Nodes belonging to the original largest component
-    main_component = set(wcc[0])
+    main_component = set(components_sorted[0])
 
     # Mark all edges in the original largest component as step 0
     for u, v in H.subgraph(main_component).edges():
@@ -185,121 +189,122 @@ def linkbikenet(
     
     closest_pairs = []
     closest_components = []
+    total = len(components_sorted)-1
     step = 1
 
     # check which strategy was chosen and execute the corresponding algorithm
     if connection_strategy == "largest_to_second":
         for i in tqdm(
-                range(len(wcc)-1),
+                range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
                 leave=True,
                 unit="component",
-                total=len(wcc)-1,
+                total=total,
                 bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
                 disable=settings.silent,
             ):
-            wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair = pair_between_largest_components(wcc)
+            pair_candidates = pair_between_largest_components(components_sorted)
+            pair = shortest_path_components_from_candidates(pair_candidates)
             # Determine which components contain u and v
-            component_u = next(c for c in wcc if pair[0] in c)
-            component_v = next(c for c in wcc if pair[1] in c)
+            component_u = next(c for c in components_sorted if pair[0] in c)
+            component_v = next(c for c in components_sorted if pair[1] in c)
             u_in_main = pair[0] in main_component
             v_in_main = pair[1] in main_component
             closest_pairs.append(pair)
-            closest_components.append([component_u, component_v])
+            closest_components.append([components_sorted[0], component_v])
             H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
-            if u_in_main and not v_in_main:
-                mark_joined_component(H, component_v, step)
-                main_component.update(component_v)
-                H[pair[0]][pair[1]]["lcc_step"] = step
-            elif v_in_main and not u_in_main:
-                mark_joined_component(H, component_u, step)
-                main_component.update(component_u)
-                H[pair[0]][pair[1]]["lcc_step"] = step
+            mark_joined_component(H, component_v, step)
+            main_component.update(component_v)
+            H[pair[0]][pair[1]]["lcc_step"] = step
             step += 1
 
     elif connection_strategy == "largest_to_closest":
+        pathedges_all = []
         for i in tqdm(
-                range(len(wcc)-1),
+                range(1,total+1),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
                 leave=True,
                 unit="component",
-                total=len(wcc)-1,
+                total=total,
                 bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
                 disable=settings.silent,
             ):
-            wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair = pair_between_largest_and_closest_components(wcc)
-            # Determine which components contain u and v
-            component_u = next(c for c in wcc if pair[0] in c)
-            component_v = next(c for c in wcc if pair[1] in c)
-            u_in_main = pair[0] in main_component
-            v_in_main = pair[1] in main_component
-            closest_pairs.append(pair)
-            closest_components.append([component_u, component_v])
-            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
-            if u_in_main and not v_in_main:
-                mark_joined_component(H, component_v, step)
-                main_component.update(component_v)
-                H[pair[0]][pair[1]]["lcc_step"] = step
-            elif v_in_main and not u_in_main:
-                mark_joined_component(H, component_u, step)
-                main_component.update(component_u)
-                H[pair[0]][pair[1]]["lcc_step"] = step
+            pair_candidates = pair_between_largest_and_closest_components(components_sorted)
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - ignore it
+                continue
+            closest_pairs.append([pairinfo['lcc_nodeid'], pairinfo['comp_nodeid']])
+            # H.add_edge(pairinfo['lcc_nodeid'], pairinfo['comp_nodeid'], length=0, lcc_step=None) # To do: add full path
+            # print()
+            # print(pairinfo['path'])
+            # print(pairinfo['distance_nw'])
+            # sys.exit()
+            pathedges = path_to_edges(pairinfo['path'], pairinfo['distance_nw'], step)
+            print(pathedges)
+            H.add_edges_from(pathedges)
+            mark_joined_component(H, pairinfo['comp'], step)
+            main_component.update(pairinfo['comp'])
+            # H[int(pairinfo['lcc_nodeid'])][int(pairinfo['comp_nodeid'])]["lcc_step"] = step
+            pathedges_all.extend(pathedges)
             step += 1
+            if step>4:
+                print(pathedges_all)
+                sys.exit()
 
-    elif connection_strategy == "closest_components":
-        for i in tqdm(
-                range(len(wcc)-1),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
-                leave=True,
-                unit="component",
-                total=len(wcc)-1,
-                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
-                disable=settings.silent,
-            ):
-            wcc = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
-                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair = pair_between_closest_components(wcc)
-            # Determine which components contain u and v
-            component_u = next(c for c in wcc if pair[0] in c)
-            component_v = next(c for c in wcc if pair[1] in c)
-            u_in_main = pair[0] in main_component
-            v_in_main = pair[1] in main_component
-            closest_pairs.append(pair)
-            closest_components.append([component_u, component_v])
-            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
-            if u_in_main and not v_in_main:
-                mark_joined_component(H, component_v, step)
-                main_component.update(component_v)
-                H[pair[0]][pair[1]]["lcc_step"] = step
-            elif v_in_main and not u_in_main:
-                mark_joined_component(H, component_u, step)
-                main_component.update(component_u)
-                H[pair[0]][pair[1]]["lcc_step"] = step
-            step += 1
+    # elif connection_strategy == "closest_components":
+    #     for i in tqdm(
+    #             range(len(components_sorted)-1),
+    #             desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
+    #             leave=True,
+    #             unit="component",
+    #             total=len(components_sorted)-1,
+    #             bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+    #             disable=settings.silent,
+    #         ):
+    #         components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+    #             [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+    #         pair = pair_between_closest_components(components_sorted)
+    #         # # Determine which components contain u and v
+    #         # component_u = next(c for c in components_sorted if pair[0] in c)
+    #         # component_v = next(c for c in components_sorted if pair[1] in c)
+    #         # u_in_main = pair[0] in main_component
+    #         # v_in_main = pair[1] in main_component
+    #         closest_pairs.append(pair)
+    #         # closest_components.append([component_u, component_v])
+    #         H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
+    #         if u_in_main and not v_in_main:
+    #             mark_joined_component(H, component_v, step)
+    #             main_component.update(component_v)
+    #             H[pair[0]][pair[1]]["lcc_step"] = step
+    #         elif v_in_main and not u_in_main:
+    #             mark_joined_component(H, component_u, step)
+    #             main_component.update(component_u)
+    #             H[pair[0]][pair[1]]["lcc_step"] = step
+    #         step += 1
 
     progress_bar = initialize_progress_bar("Postprocessing data", 4)
-
-    H.remove_edges_from(closest_pairs)
+    
+    H.remove_edges_from(pathedges_all)
     edges_pbi_gdf = graph_edges_to_gdf(H)
 
-    # find paths between node pairs so we can generate geometries
-    paths = []
-    for i, (pair_nodes, pair_components) in enumerate(zip(closest_pairs, closest_components)):
-        try:
-            path = nx.shortest_path(G, pair_nodes[0], pair_nodes[1], weight='length')
-            # We have so far only the shortest path between a pair of nodes 
-            # between two components that have shortest euclidian distance. But 
-            # there could be another pair of nodes between the two components 
-            # that have shorter shortest paths. Find this node pair:
-            path = shortest_path_components(G, pair_components, path)
-            closest_pairs[i] = [path[0], path[-1]]
-        except nx.NetworkXNoPath:
-            continue
-        paths.append(path)
+    # # find paths between node pairs so we can generate geometries
+    # paths = []
+    # for i, (pair_nodes, pair_components) in enumerate(zip(closest_pairs, closest_components)):
+    #     try:
+    #         path = nx.shortest_path(G, pair_nodes[0], pair_nodes[1], weight='length')
+    #         # We have so far only the shortest path between a pair of nodes 
+    #         # between two components that have shortest euclidian distance. But 
+    #         # there could be another pair of nodes between the two components 
+    #         # that have shorter shortest paths. Find this node pair:
+    #         path = shortest_path_components(G, pair_components, path)
+    #         closest_pairs[i] = [path[0], path[-1]]
+    #     except nx.NetworkXNoPath:
+    #         continue
+    #     paths.append(path)
   
     progress_bar.update(1)
 
