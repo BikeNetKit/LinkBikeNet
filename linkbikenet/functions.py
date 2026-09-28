@@ -406,14 +406,11 @@ def get_correct_edgetuples(edge_gdf, nodelist):
             edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
     return edgelist_final
 
-def path_to_edges(nodelist, distlist, step):
-    # to do: add x,y
-    if type(distlist) is not list:
-        distlist = [distlist]
+def path_to_edges(nodelist):
     edgelist_prelim = zip(nodelist, nodelist[1:])
     edgelist_final = []
-    for edge_prelim, edge_data in zip(edgelist_prelim,distlist):
-        edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0], {'length': edge_data, 'lcc_step': step}]))
+    for edge_prelim in edgelist_prelim:
+        edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
     return edgelist_final
 
 

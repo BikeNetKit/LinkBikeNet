@@ -221,7 +221,8 @@ def linkbikenet(
             step += 1
 
     elif connection_strategy == "largest_to_closest":
-        pathedges_all = []
+        pathedges_all = set()
+        paths_all = []
         for i in tqdm(
                 range(1,total+1),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
@@ -237,23 +238,16 @@ def linkbikenet(
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             if pairinfo['path'] is None: # Completely disconnected - ignore it
                 continue
-            closest_pairs.append([pairinfo['lcc_nodeid'], pairinfo['comp_nodeid']])
-            # H.add_edge(pairinfo['lcc_nodeid'], pairinfo['comp_nodeid'], length=0, lcc_step=None) # To do: add full path
-            # print()
-            # print(pairinfo['path'])
-            # print(pairinfo['distance_nw'])
-            # sys.exit()
-            pathedges = path_to_edges(pairinfo['path'], pairinfo['distance_nw'], step)
-            print(pathedges)
-            H.add_edges_from(pathedges)
+            pathedges = path_to_edges(pairinfo['path'])
+            paths_all.append(pairinfo['path'])
+            G_path = G.subgraph(pairinfo['path']).copy()
+            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
+            # print(len(G_path))
+            H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['comp'], step)
             main_component.update(pairinfo['comp'])
-            # H[int(pairinfo['lcc_nodeid'])][int(pairinfo['comp_nodeid'])]["lcc_step"] = step
-            pathedges_all.extend(pathedges)
+            pathedges_all = pathedges_all.union(pathedges)
             step += 1
-            if step>4:
-                print(pathedges_all)
-                sys.exit()
 
     # elif connection_strategy == "closest_components":
     #     for i in tqdm(
@@ -291,26 +285,12 @@ def linkbikenet(
     H.remove_edges_from(pathedges_all)
     edges_pbi_gdf = graph_edges_to_gdf(H)
 
-    # # find paths between node pairs so we can generate geometries
-    # paths = []
-    # for i, (pair_nodes, pair_components) in enumerate(zip(closest_pairs, closest_components)):
-    #     try:
-    #         path = nx.shortest_path(G, pair_nodes[0], pair_nodes[1], weight='length')
-    #         # We have so far only the shortest path between a pair of nodes 
-    #         # between two components that have shortest euclidian distance. But 
-    #         # there could be another pair of nodes between the two components 
-    #         # that have shorter shortest paths. Find this node pair:
-    #         path = shortest_path_components(G, pair_components, path)
-    #         closest_pairs[i] = [path[0], path[-1]]
-    #     except nx.NetworkXNoPath:
-    #         continue
-    #     paths.append(path)
   
     progress_bar.update(1)
 
     edges_gdf = graph_edges_to_gdf(G)
     df = pd.DataFrame()
-    df['nodelist'] = paths
+    df['nodelist'] = paths_all
 
     df['edge_list'] = df.nodelist.apply(lambda x: get_correct_edgetuples(edges_gdf, x))
     gdf = create_gdf_with_geoms(df, edges_gdf)
@@ -330,7 +310,8 @@ def linkbikenet(
     progress_bar.update(1)
 
     for i in range(len(gdf)):
-        H.add_edge(closest_pairs[i][0], closest_pairs[i][1], length=edge_lengths[i])
+        G_path = G.subgraph(paths_all[i]).copy()
+        H = nx.compose(H, G_path)
         total, largest = calculate_network_statistics(H)
         network_lengths.append(total)
         lcc_lengths.append(largest)
