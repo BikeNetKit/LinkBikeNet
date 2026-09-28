@@ -251,6 +251,9 @@ def linkbikenet(
             step += 1
     progress_bar.update(1)
 
+    H.remove_edges_from(closest_pairs)
+    edges_pbi_gdf = graph_edges_to_gdf(H)
+
     # find paths between node pairs so we can generate geometries
     paths = []
     for i, (pair_nodes, pair_components) in enumerate(zip(closest_pairs, closest_components)):
@@ -265,9 +268,7 @@ def linkbikenet(
         except nx.NetworkXNoPath:
             continue
         paths.append(path)
-
-    H.remove_edges_from(closest_pairs)
-    edges_pbi_gdf = graph_edges_to_gdf(H)
+  
     progress_bar.update(1)
 
     edges_gdf = graph_edges_to_gdf(G)
