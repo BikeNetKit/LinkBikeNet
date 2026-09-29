@@ -235,9 +235,9 @@ def linkbikenet(
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_largest_and_closest_components(components_sorted)
-            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
-            if pairinfo['path'] is None: # Completely disconnected - ignore it
+            if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
                 continue
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
@@ -261,9 +261,9 @@ def linkbikenet(
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_closest_components(components_sorted)
-            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
-            if pairinfo['path'] is None: # Completely disconnected - ignore it
+            if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
                 continue
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
