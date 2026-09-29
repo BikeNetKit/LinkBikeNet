@@ -2,4 +2,7 @@
 
 import linkbikenet as lbn
 
-edges_ordered = lbn.linkbikenet("Frederiksberg Municipality")
+edges_ordered = lbn.linkbikenet(
+	"Budapest", 
+	connection_strategy='closest_components'
+)

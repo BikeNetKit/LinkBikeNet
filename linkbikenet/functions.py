@@ -1,22 +1,48 @@
 from . import config
 from . import settings
+from . import constants
 import re
 import osmnx as ox
 import networkx as nx
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
 from tqdm import tqdm
+import datetime
+pd.set_option('display.max_columns', None) # for debugging
+import sys  # noqa: F401, use sys.exit() for debugging
+
+def _print_header(city_query, connection_strategy):
+    """Print header.
+    """
+    if not settings.silent:
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
+        print("RUNNING LINKBIKENET FOR CITY: " + city_query)
+        print(connection_strategy)
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╮")
+
+def _print_footer(export_data, endtime, starttime):
+    """Print footer.
+    """
+    if not settings.silent:
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╯")
+        if export_data:
+            print("Data exported to "+settings.export_path['results'])
+        if export_data or export_plots:
+            print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-")
+        print("FINISHED IN " + str(datetime.timedelta(seconds = round(endtime - starttime))))
+        print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
 
 def initialize_progress_bar(desc_string, total=1, unit="step"):
     """Initialize tqdm progress bar.
     """
     return tqdm(
-        desc=("{:<"+str(settings._PROGRESS_BAR_DESC_LENGTH)+"}").format(desc_string),
+        desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format(desc_string),
         total=total,
         unit=unit,
-        bar_format='{l_bar}{bar:'+str(settings._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+        bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
         disable=settings.silent,
     )
 
@@ -134,7 +160,7 @@ def map_edges_to_bike_infrastructure(g):
 
     # add binary edge attribute "pbi" (protected bike infra: True/False)
     for edge in g.edges(keys=True):
-        if g.edges[edge].get("cycleway") in config.cycleway_bike_infra or g.edges[edge].get("cycleway:right") in config.cycleway_right_bike_infra or g.edges[edge].get("cycleway:left") in config.cycleway_left_bike_infra or g.edges[edge].get("cycleway:both") in config.cycleway_both_bike_infra or g.edges[edge].get("highway") in config.highway_bike_infra or g.edges[edge].get("cyclestreet") or g.edges[edge].get("bicycle_road") or g.edges[edge].get("highway") in config.highway_bike_infra_extended and g.edges[edge].get("bicycle") in config.bicycle_bike_infra and g.edges[edge].get("access") != 'private':
+        if g.edges[edge].get("cycleway") in config.cycleway_bike_infra or g.edges[edge].get("cycleway:right") in config.cycleway_right_bike_infra or g.edges[edge].get("cycleway:left") in config.cycleway_left_bike_infra or g.edges[edge].get("cycleway:both") in config.cycleway_both_bike_infra or g.edges[edge].get("highway") in config.highway_bike_infra or g.edges[edge].get("cyclestreet") or g.edges[edge].get("bicycle_road") or g.edges[edge].get("highway") in config.highway_bike_infra_extended and g.edges[edge].get("bicycle") in config.bicycle_bike_infra and g.edges[edge].get("access") != 'private' and g.edges[edge].get("motor_vehicle") != 'yes':
             g.edges[edge]["pbi"] = 1
         else:
             g.edges[edge]["pbi"] = 0
@@ -214,22 +240,30 @@ def graph_edges_to_gdf(G):
 
     return edges_gdf
 
-def pair_between_largest_components(wcc):
-    """
-    Find the closest pair of nodes between the two largest components
-    using a KD-tree.
+def pair_between_largest_components(G, wcc):
+    """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
+    connecting the largest component to the second largest.
 
     Parameters
     ----------
     components : list of networkx.Graph
         Components sorted with the largest first.
+
     Returns
     -------
-    closest_pair : tuple
-        The two nodes that should be connected
+    closest_pairs : pandas.DataFrame
+        The `constants.TOP_CLOSEST_COMPONENTS` candidates of node pairs, with 
+        the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
+        'lcc', 'comp'
     """
     G1 = wcc[0]
     G2 = wcc[1]
+    best_topn_distance = np.inf
+
+    try: # Sanity check if connectable
+        sp = nx.shortest_path(G, list(G1.nodes())[0], list(G2.nodes())[0])
+    except nx.NetworkXNoPath:
+        return None
 
     # Coordinates of nodes in the second component
     nodes2 = list(G2.nodes())
@@ -239,66 +273,59 @@ def pair_between_largest_components(wcc):
     ])
     # Build KD-tree
     tree = cKDTree(coords2)
-    closest_pair = None
-    min_dist = np.inf
 
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     # Query the nearest node in G2 for every node in G1
     for n1, data in G1.nodes(data=True):
         coord = np.array([data["x"], data["y"]])
         dist, idx = tree.query(coord)
-        if dist < min_dist:
-            min_dist = dist
-            closest_pair = (n1, nodes2[idx])
+        if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
+            closest_pairs.loc[len(closest_pairs)] = [n1, nodes2[idx], dist, G1, G2]
+            closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+        elif dist < best_topn_distance: # Append only if better than top N
+            new_row = pd.DataFrame({
+                'lcc_nodeid': [n1],
+                'comp_nodeid': [nodes2[idx]],
+                'distance_eucl': [dist],
+                'lcc': [G1],
+                'comp': [G2],
+                })
+            closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
+            closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
-    return closest_pair
-
-def pair_between_largest_and_closest_components(wcc):
-    """
-    Find the pair of nodes connecting the largest component to the
-    geographically nearest remaining component.
+def get_underway_connections(H, pairinfo, components_sorted):
+    """Taking a path between two components, get other components on the way 
+    that also become connected.
 
     Parameters
     ----------
-    wcc : list of nx.Graph
+    H : networkx.Graph
+        Graph of bicycle network components, connected up to a stage.
+    pairinfo : pandas.DataFrame
+        Data containing the closest node pair and more information: 
+        'lcc_nodeid', 'comp_nodeid', 'distance_nw', 'path', 'lcc', 'comp'
+    components_sorted : list of nx.Graph
         Connected components sorted with the largest first.
 
     Returns
     -------
-    closest_pair : tuple
-        The two nodes that should be connected
+    components_connected_underway : set
+        Set of components that were connected underway. Can be empty.
     """
-    largest = wcc[0]
+    components_connected_underway = set()
+    for node in pairinfo['path']:
+        if node in H:
+            for component in components_sorted:
+                if node in component:
+                    components_connected_underway.add(component)
+    return components_connected_underway
 
-    # Build KD-tree for the largest component
-    largest_nodes = list(largest.nodes())
-    largest_xy = np.array([
-        (largest.nodes[n]["x"], largest.nodes[n]["y"])
-        for n in largest_nodes
-    ])
-    tree = cKDTree(largest_xy)
-
-    closest_pair = None
-    best_distance = np.inf
-    # Compare every remaining component to the largest
-    for comp in wcc[1:]:
-        comp_nodes = list(comp.nodes())
-        comp_xy = np.array([
-            (comp.nodes[n]["x"], comp.nodes[n]["y"])
-            for n in comp_nodes
-        ])
-        distances, indices = tree.query(comp_xy)
-        i = np.argmin(distances)
-        if distances[i] < best_distance:
-            best_distance = distances[i]
-            closest_pair = (
-                largest_nodes[indices[i]],
-                comp_nodes[i]
-            )
-    return closest_pair
-
-def pair_between_closest_components(wcc):
-    """
-    Find the closest pair of nodes belonging to two different connected
+def pair_between_largest_and_closest_components(wcc):
+    """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
+    connecting the largest component to the geographically nearest remaining 
     components.
 
     Parameters
@@ -308,11 +335,52 @@ def pair_between_closest_components(wcc):
 
     Returns
     -------
-    closest_pair : tuple
-        The two nodes that should be connected
+    closest_pairs : pandas.DataFrame
+        The `constants.TOP_CLOSEST_COMPONENTS` candidates of node pairs, with 
+        the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
+        'lcc', 'comp'
     """
-    closest_pair = None
-    best_distance = np.inf
+    lcc = wcc[0]
+
+    # Build KD-tree for the largest component
+    lcc_nodes = list(lcc.nodes())
+    lcc_xy = np.array([
+        (lcc.nodes[n]["x"], lcc.nodes[n]["y"])
+        for n in lcc_nodes
+    ])
+    tree = cKDTree(lcc_xy)
+
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
+    # Compare every remaining component to the lcc
+    for comp in wcc[1:]:
+        comp_nodes = list(comp.nodes())
+        comp_xy = np.array([
+            (comp.nodes[n]["x"], comp.nodes[n]["y"])
+            for n in comp_nodes
+        ])
+        distances, indices = tree.query(comp_xy)
+        i = np.argmin(distances)
+        closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]], comp_nodes[i], distances[i], lcc, comp] # To do: Optimize. Never grow a dataframe. Could use code from pair_between_closest_components()
+    return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
+
+def pair_between_closest_components(wcc):
+    """Find the `constants.TOP_CLOSEST_COMPONENTS` closest pairs of nodes 
+    belonging to two different connected components.
+
+    Parameters
+    ----------
+    wcc : list of nx.Graph
+        Connected components sorted with the largest first.
+
+    Returns
+    -------
+    closest_pairs : pandas.DataFrame
+        The `constants.TOP_CLOSEST_COMPONENTS` candidates of node pairs, with 
+        the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
+        'lcc', 'comp'
+    """
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
+    best_topn_distance = np.inf
 
     for i in range(len(wcc) - 1):
         G1 = wcc[i]
@@ -323,6 +391,7 @@ def pair_between_closest_components(wcc):
         ])
         tree = cKDTree(coords1)
 
+        # By construction, G1 is larger than G2
         for j in range(i + 1, len(wcc)):
             G2 = wcc[j]
             nodes2 = list(G2.nodes())
@@ -333,14 +402,56 @@ def pair_between_closest_components(wcc):
 
             distances, indices = tree.query(coords2)
             k = np.argmin(distances)
-            if distances[k] < best_distance:
-                best_distance = distances[k]
-                closest_pair = (
-                    nodes1[indices[k]],
-                    nodes2[k]
-                )
+            if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
+                closest_pairs.loc[len(closest_pairs)] = [nodes1[indices[k]], nodes2[k], distances[k], G1, G2]
+                closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+                best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+            elif distances[k] < best_topn_distance: # Append only if better than top N
+                new_row = pd.DataFrame({
+                    'lcc_nodeid': [nodes1[indices[k]]],
+                    'comp_nodeid': [nodes2[k]],
+                    'distance_eucl': [distances[k]],
+                    'lcc': [G1],
+                    'comp': [G2],
+                    })
+                closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
+                closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
+                best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    return closest_pairs
 
-    return closest_pair
+
+def shortest_path_components_from_candidates(G, pair_candidates):
+    """Given a set of node pair candidates between pairs of components, find
+    the two components and their nodes that are closest.
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Graph for calculating shortest paths, with edges weighted via 'length'.
+    pair_candidates : pandas.DataFrame
+        Data set of node pair candidates between one lcc component and other
+        components. Fields: 'lcc_nodeid', 'comp_nodeid'
+
+    Returns
+    -------
+    closest_pairs : pandas.DataSeries
+        Data containing the closest node pair and more information: 
+        'lcc_nodeid', 'comp_nodeid', 'distance_nw', 'path', 'lcc', 'comp'
+    """
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_nw','path','lcc','comp'])
+    for index, row in pair_candidates.iterrows():
+        try:
+            path_initial = nx.shortest_path(G, row['lcc_nodeid'], row['comp_nodeid'], weight='length')
+            # We have so far only the shortest path between a pair of nodes 
+            # between two components that have shortest euclidian distance. But 
+            # there could be another pair of nodes between the two components 
+            # that have shorter shortest paths. Find this node pair:
+            path = shortest_path_components(G, [row['lcc'],row['comp']], path_initial)
+            closest_pairs.loc[len(closest_pairs)] = [path[0], path[-1], float(nx.shortest_path_length(G, path[0], path[-1], weight='length')), path, row['lcc'],row['comp']]
+        except nx.NetworkXNoPath:
+            closest_pairs.loc[len(closest_pairs)] = [row['lcc_nodeid'], row['comp_nodeid'], np.inf, None, row['lcc'], row['comp']]
+    return closest_pairs.nsmallest(1,'distance_nw').iloc[0]
+
 
 def get_correct_edgetuples(edge_gdf, nodelist):
     """
@@ -368,6 +479,26 @@ def get_correct_edgetuples(edge_gdf, nodelist):
         else:
             edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
     return edgelist_final
+
+def path_to_edges(nodelist):
+    """Turn a list of nodes along a path into a list of edges along the path.
+
+    Parameters
+    ----------
+    nodelist : list
+        List of node ids, ordered along a path.
+
+    Returns
+    -------
+    edgelist_final : list
+        List of edge ids (=tuples of node ids), ordered along a path.
+    """
+    edgelist_prelim = zip(nodelist, nodelist[1:])
+    edgelist_final = []
+    for edge_prelim in edgelist_prelim:
+        edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
+    return edgelist_final
+
 
 def create_gdf_with_geoms(df, edges):
     """
