@@ -19,6 +19,7 @@ from linkbikenet.functions import (
     resolve_crs_calculations,
     map_edges_to_bike_infrastructure,
     find_edges_to_drop,
+    get_underway_connections,
     graph_edges_to_gdf,
     pair_between_largest_components,
     pair_between_largest_and_closest_components,
@@ -195,6 +196,8 @@ def linkbikenet(
     # check which strategy was chosen and execute the corresponding algorithm
     pathedges_all = set()
     paths_all = []
+    num_comps_connected = []
+    comps_remaining = []
     if connection_strategy == "largest_to_second":
         for i in tqdm(
                 range(total),
@@ -207,20 +210,38 @@ def linkbikenet(
             ):
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+            comps_remaining.append(len(components_sorted))
             pair_candidates = pair_between_largest_components(components_sorted)
-            pair = shortest_path_components_from_candidates(pair_candidates)
-            # Determine which components contain u and v
-            component_u = next(c for c in components_sorted if pair[0] in c)
-            component_v = next(c for c in components_sorted if pair[1] in c)
-            u_in_main = pair[0] in main_component
-            v_in_main = pair[1] in main_component
-            closest_pairs.append(pair)
-            closest_components.append([components_sorted[0], component_v])
-            H.add_edge(pair[0], pair[1], length=0, lcc_step=None)
-            mark_joined_component(H, component_v, step)
-            main_component.update(component_v)
-            H[pair[0]][pair[1]]["lcc_step"] = step
+            # if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
+            #     continue
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - ignore it
+                continue
+            pathedges = set(path_to_edges(pairinfo['path']))
+
+            # Add unintended connections on the way
+            components_connected_underway = get_underway_connections(H, pairinfo, components_sorted)
+            num_comps_connected.append(len(components_connected_underway))
+            components_connected_underway.remove(components_sorted[0]) # Remove largest component
+            components_connected_underway.remove(components_sorted[1]) # Remove second largest
+            for c_underway in components_connected_underway: # Only add in-between components
+                # pathedges.discard(set(c_underway.edges))
+                # H_comp = H.subgraph(c_underway).copy()
+                # H = nx.compose(H, H_comp)
+                mark_joined_component(H, c_underway, step)
+
+            # Add path
+            paths_all.append(pairinfo['path'])
+            G_path = G.subgraph(pairinfo['path']).copy()
+            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
+            H = nx.compose(H, G_path)
+            mark_joined_component(H, pairinfo['comp'], step)
+            pathedges_all = pathedges_all.union(pathedges)
             step += 1
+        print()
+        print(num_comps_connected)
+        print(sum(num_comps_connected))
+        print(comps_remaining)
 
     elif connection_strategy == "largest_to_closest":
         for i in tqdm(
@@ -247,6 +268,7 @@ def linkbikenet(
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['comp'], step)
             pathedges_all = pathedges_all.union(pathedges)
+            num_comps_connected.append(2)
             step += 1
 
     elif connection_strategy == "closest_components":
@@ -274,6 +296,7 @@ def linkbikenet(
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['comp'], step)
             pathedges_all = pathedges_all.union(pathedges)
+            num_comps_connected.append(2)
             step += 1
 
     progress_bar = initialize_progress_bar("Postprocessing data", 3)
@@ -326,6 +349,7 @@ def linkbikenet(
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
     gdf['link_length'] = edge_lengths
+    gdf['num_components_linked'] = num_comps_connected
 
     # add initial row to represent state of network before links are added
     initial_row = {
@@ -335,6 +359,7 @@ def linkbikenet(
         "network_length": initial_network_length,
         "lcc_length": initial_lcc_length,
         "link_length": 0,
+        "num_components_linked": 0,
     }
     # Turn it into a one-row GeoDataFrame
     initial_gdf = gpd.GeoDataFrame(
@@ -357,6 +382,7 @@ def linkbikenet(
     gdf['lcc_length'] = gdf['lcc_length'].astype(int)
     gdf['lcc_gain'] = gdf['lcc_gain'].astype(int)
     gdf['link_length'] = gdf['link_length'].astype(int)
+    gdf['num_components_linked'] = gdf['num_components_linked'].astype(int)
     gdf['lcc_share'] = gdf['lcc_share'].round(4)
     edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
 

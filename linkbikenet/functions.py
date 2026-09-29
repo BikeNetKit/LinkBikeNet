@@ -241,21 +241,24 @@ def graph_edges_to_gdf(G):
     return edges_gdf
 
 def pair_between_largest_components(wcc):
-    """
-    Find the closest pair of nodes between the two largest components
-    using a KD-tree.
+    """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
+    connecting the largest component to the second largest.
 
     Parameters
     ----------
     components : list of networkx.Graph
         Components sorted with the largest first.
+
     Returns
     -------
-    closest_pair : tuple
-        The two nodes that should be connected
+    closest_pairs : pandas.DataFrame
+        The `constants.TOP_CLOSEST_COMPONENTS` candidates of node pairs, with 
+        the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
+        'lcc', 'comp'
     """
     G1 = wcc[0]
     G2 = wcc[1]
+    best_topn_distance = np.inf
 
     # Coordinates of nodes in the second component
     nodes2 = list(G2.nodes())
@@ -265,18 +268,55 @@ def pair_between_largest_components(wcc):
     ])
     # Build KD-tree
     tree = cKDTree(coords2)
-    closest_pair = None
-    min_dist = np.inf
 
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     # Query the nearest node in G2 for every node in G1
     for n1, data in G1.nodes(data=True):
         coord = np.array([data["x"], data["y"]])
         dist, idx = tree.query(coord)
-        if dist < min_dist:
-            min_dist = dist
-            closest_pair = (n1, nodes2[idx])
+        if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
+            closest_pairs.loc[len(closest_pairs)] = [n1, nodes2[idx], dist, G1, G2]
+            closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+        elif dist < best_topn_distance: # Append only if better than top N
+            new_row = pd.DataFrame({
+                'lcc_nodeid': [n1],
+                'comp_nodeid': [nodes2[idx]],
+                'distance_eucl': [dist],
+                'lcc': [G1],
+                'comp': [G2],
+                })
+            closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
+            closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
-    return closest_pair
+def get_underway_connections(H, pairinfo, components_sorted):
+    """Taking a path between two components, get other components on the way 
+    that also become connected.
+
+    Parameters
+    ----------
+    H : networkx.Graph
+        Graph of bicycle network components, connected up to a stage.
+    pairinfo : pandas.DataFrame
+        Data containing the closest node pair and more information: 
+        'lcc_nodeid', 'comp_nodeid', 'distance_nw', 'path', 'lcc', 'comp'
+    components_sorted : list of nx.Graph
+        Connected components sorted with the largest first.
+
+    Returns
+    -------
+    components_connected_underway : set
+        Set of components that were connected underway. Can be empty.
+    """
+    components_connected_underway = set()
+    for node in pairinfo['path']:
+        if node in H:
+            for component in components_sorted:
+                if node in component:
+                    components_connected_underway.add(component)
+    return components_connected_underway
 
 def pair_between_largest_and_closest_components(wcc):
     """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
@@ -436,6 +476,18 @@ def get_correct_edgetuples(edge_gdf, nodelist):
     return edgelist_final
 
 def path_to_edges(nodelist):
+    """Turn a list of nodes along a path into a list of edges along the path.
+
+    Parameters
+    ----------
+    nodelist : list
+        List of node ids, ordered along a path.
+
+    Returns
+    -------
+    edgelist_final : list
+        List of edge ids (=tuples of node ids), ordered along a path.
+    """
     edgelist_prelim = zip(nodelist, nodelist[1:])
     edgelist_final = []
     for edge_prelim in edgelist_prelim:
