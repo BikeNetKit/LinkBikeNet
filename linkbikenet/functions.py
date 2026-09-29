@@ -316,23 +316,6 @@ def pair_between_largest_and_closest_components(wcc):
         closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]],comp_nodes[i],distances[i],lcc,comp]
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl')
 
-def shortest_path_components_from_candidates(G, pair_candidates):
-
-    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_nw','path','lcc','comp'])
-    for index, row in pair_candidates.iterrows():
-        try:
-            path_initial = nx.shortest_path(G, row['lcc_nodeid'], row['comp_nodeid'], weight='length')
-            # We have so far only the shortest path between a pair of nodes 
-            # between two components that have shortest euclidian distance. But 
-            # there could be another pair of nodes between the two components 
-            # that have shorter shortest paths. Find this node pair:
-            path = shortest_path_components(G, [row['lcc'],row['comp']], path_initial)
-            closest_pairs.loc[len(closest_pairs)] = [path[0], path[-1], float(nx.shortest_path_length(G, path[0], path[-1], weight='length')), path, row['lcc'],row['comp']]
-        except nx.NetworkXNoPath:
-            closest_pairs.loc[len(closest_pairs)] = [row['lcc_nodeid'], row['comp_nodeid'], np.inf, None, row['lcc'], row['comp']]
-    return closest_pairs.nsmallest(1,'distance_nw').iloc[0]
-
-
 def pair_between_closest_components(wcc):
     """
     Find the closest pair of nodes belonging to two different connected
@@ -378,6 +361,40 @@ def pair_between_closest_components(wcc):
                 )
 
     return closest_pair
+
+
+def shortest_path_components_from_candidates(G, pair_candidates):
+    """Given a set of node pair candidates between pairs of components, find
+    the two components and their nodes that are closest.
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Graph for calculating shortest paths, with edges weighted via 'length'.
+    pair_candidates : pandas.DataFrame
+        Data set of node pair candidates between one lcc component and other
+        components. Fields: 'lcc_nodeid', 'comp_nodeid'
+
+    Returns
+    -------
+    closest_pairs : pandas.DataSeries
+        Data containing the closest node pair and more information: 
+        'lcc_nodeid', 'comp_nodeid', 'distance_nw', 'path', 'lcc', 'comp'
+    """
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_nw','path','lcc','comp'])
+    for index, row in pair_candidates.iterrows():
+        try:
+            path_initial = nx.shortest_path(G, row['lcc_nodeid'], row['comp_nodeid'], weight='length')
+            # We have so far only the shortest path between a pair of nodes 
+            # between two components that have shortest euclidian distance. But 
+            # there could be another pair of nodes between the two components 
+            # that have shorter shortest paths. Find this node pair:
+            path = shortest_path_components(G, [row['lcc'],row['comp']], path_initial)
+            closest_pairs.loc[len(closest_pairs)] = [path[0], path[-1], float(nx.shortest_path_length(G, path[0], path[-1], weight='length')), path, row['lcc'],row['comp']]
+        except nx.NetworkXNoPath:
+            closest_pairs.loc[len(closest_pairs)] = [row['lcc_nodeid'], row['comp_nodeid'], np.inf, None, row['lcc'], row['comp']]
+    return closest_pairs.nsmallest(1,'distance_nw').iloc[0]
+
 
 def get_correct_edgetuples(edge_gdf, nodelist):
     """
