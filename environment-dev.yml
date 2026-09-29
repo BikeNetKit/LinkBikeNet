@@ -20,8 +20,8 @@ dependencies:
   - pre-commit
   - jupyterlab
   - pixi-kernel
-  - linkbikenet
   - pip:
       # not available via conda-forge:
       - sphinx-copybutton
       - furo
+      - linkbikenet
