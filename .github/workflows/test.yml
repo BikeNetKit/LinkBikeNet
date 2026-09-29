@@ -45,7 +45,7 @@ jobs:
           create-args: python=${{ matrix.python-version }}
           environment-file: environment-dev.yml
           cache-environment: false
-          cache-environment-key: W${{ env.WEEK }}
+          # cache-environment-key: W${{ env.WEEK }}
 
   run-tests:
     needs: caching
