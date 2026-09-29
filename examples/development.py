@@ -3,6 +3,6 @@
 import linkbikenet as lbn
 
 edges_ordered = lbn.linkbikenet(
-	"Riga", 
-	connection_strategy='largest_to_second'
+	"Budapest", 
+	connection_strategy='closest_components'
 )

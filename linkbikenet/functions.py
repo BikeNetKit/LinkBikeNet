@@ -240,7 +240,7 @@ def graph_edges_to_gdf(G):
 
     return edges_gdf
 
-def pair_between_largest_components(wcc):
+def pair_between_largest_components(G, wcc):
     """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
     connecting the largest component to the second largest.
 
@@ -259,6 +259,12 @@ def pair_between_largest_components(wcc):
     G1 = wcc[0]
     G2 = wcc[1]
     best_topn_distance = np.inf
+
+
+    try: # Sanity check if connectable
+        sp = nx.shortest_path(G, list(G1.nodes())[0], list(G2.nodes())[0])
+    except nx.NetworkXNoPath:
+        return None
 
     # Coordinates of nodes in the second component
     nodes2 = list(G2.nodes())
