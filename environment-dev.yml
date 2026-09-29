@@ -24,4 +24,3 @@ dependencies:
       # not available via conda-forge:
       - sphinx-copybutton
       - furo
-      - linkbikenet
