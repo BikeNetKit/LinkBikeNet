@@ -315,11 +315,12 @@ def pair_between_largest_and_closest_components(wcc):
         ])
         distances, indices = tree.query(comp_xy)
         i = np.argmin(distances)
-        closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]], comp_nodes[i], distances[i], lcc, comp] # To do: Optimize. Never grow a dataframe.
+        closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]], comp_nodes[i], distances[i], lcc, comp] # To do: Optimize. Never grow a dataframe. Could use code from pair_between_closest_components()
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
 def pair_between_closest_components(wcc):
-    """Find the closest pair of nodes belonging to two different connected components.
+    """Find the `constants.TOP_CLOSEST_COMPONENTS` closest pairs of nodes 
+    belonging to two different connected components.
 
     Parameters
     ----------
@@ -329,11 +330,12 @@ def pair_between_closest_components(wcc):
     Returns
     -------
     closest_pairs : pandas.DataFrame
-        The two nodes that should be connected, with the following info: 
-        'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 'lcc', 'comp'
+        The `constants.TOP_CLOSEST_COMPONENTS` candidates of node pairs, with 
+        the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
+        'lcc', 'comp'
     """
-    closest_pair = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'], index=[0])
-    best_distance = np.inf
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
+    best_topn_distance = np.inf
 
     for i in range(len(wcc) - 1):
         G1 = wcc[i]
@@ -344,6 +346,7 @@ def pair_between_closest_components(wcc):
         ])
         tree = cKDTree(coords1)
 
+        # By construction, G1 is larger than G2
         for j in range(i + 1, len(wcc)):
             G2 = wcc[j]
             nodes2 = list(G2.nodes())
@@ -354,11 +357,22 @@ def pair_between_closest_components(wcc):
 
             distances, indices = tree.query(coords2)
             k = np.argmin(distances)
-            if distances[k] < best_distance:
-                best_distance = distances[k]
-                closest_pair.iloc[0] = [nodes1[indices[k]], nodes2[k], distances[k], G1, G2]
-
-    return closest_pair
+            if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
+                closest_pairs.loc[len(closest_pairs)] = [nodes1[indices[k]], nodes2[k], distances[k], G1, G2]
+                closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+                best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+            elif distances[k] < best_topn_distance: # Append only if better than top N
+                new_row = pd.DataFrame({
+                    'lcc_nodeid': [nodes1[indices[k]]],
+                    'comp_nodeid': [nodes2[k]],
+                    'distance_eucl': [distances[k]],
+                    'lcc': [G1],
+                    'comp': [G2],
+                    })
+                closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
+                closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
+                best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    return closest_pairs
 
 
 def shortest_path_components_from_candidates(G, pair_candidates):

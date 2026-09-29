@@ -238,13 +238,14 @@ def linkbikenet(
             if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
                 continue
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - ignore it
+                continue
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['comp'], step)
-            main_component.update(pairinfo['comp'])
             pathedges_all = pathedges_all.union(pathedges)
             step += 1
 
@@ -264,17 +265,18 @@ def linkbikenet(
             if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
                 continue
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - ignore it
+                continue
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['comp'], step)
-            main_component.update(pairinfo['comp'])
             pathedges_all = pathedges_all.union(pathedges)
             step += 1
 
-    progress_bar = initialize_progress_bar("Postprocessing data", 4)
+    progress_bar = initialize_progress_bar("Postprocessing data", 3)
     
     H.remove_edges_from(pathedges_all)
     edges_pbi_gdf = graph_edges_to_gdf(H)
@@ -303,13 +305,23 @@ def linkbikenet(
 
     initial_network_length, initial_lcc_length = calculate_network_statistics(H)
     progress_bar.update(1)
+    progress_bar.close()
 
-    for i in range(len(gdf)):
+    for i in tqdm( # To do: Optimize: Calculate already earlier instead of rebuilding the network.
+            range(len(gdf)),
+            desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Calculating metrics"),
+            leave=True,
+            unit="component",
+            total=len(gdf),
+            bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+            disable=settings.silent,
+        ):
         G_path = G.subgraph(paths_all[i]).copy()
         H = nx.compose(H, G_path)
         total, largest = calculate_network_statistics(H)
         network_lengths.append(total)
         lcc_lengths.append(largest)
+    progress_bar.close()
 
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
@@ -349,8 +361,7 @@ def linkbikenet(
     edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
 
     gdf['ordering'] = gdf.index
-    progress_bar.update(1)
-    progress_bar.close()
+    
 
     #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 

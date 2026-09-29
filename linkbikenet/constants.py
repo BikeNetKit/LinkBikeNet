@@ -4,7 +4,7 @@ constants start with an underscore.
 
 TOP_CLOSEST_COMPONENTS : int, default 5
     The number of top closest components to try to route to, for finding the
-    one with shortest path disdtance. The higher, the more accurate, but also 
+    one with shortest path distance. The higher, the more accurate, but also 
     more computations.
 _PROGRESS_BAR_DESC_LENGTH : int, default 21
     Character length of tqdm progress bar descriptions. This is the space given 
