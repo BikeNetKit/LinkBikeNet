@@ -269,9 +269,9 @@ def linkbikenet(
             G_path = G.subgraph(pairinfo['path']).copy()
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
-            mark_joined_component(H, component_v, step)
-            main_component.update(component_v)
-            H[pair[0]][pair[1]]["lcc_step"] = step
+            mark_joined_component(H, pairinfo['comp'], step)
+            main_component.update(pairinfo['comp'])
+            pathedges_all = pathedges_all.union(pathedges)
             step += 1
 
     progress_bar = initialize_progress_bar("Postprocessing data", 4)
@@ -300,6 +300,7 @@ def linkbikenet(
     network_lengths = []
     lcc_lengths = []
     edge_lengths = gdf['geometry'].length
+
     initial_network_length, initial_lcc_length = calculate_network_statistics(H)
     progress_bar.update(1)
 
@@ -312,6 +313,7 @@ def linkbikenet(
 
     gdf['network_length'] = network_lengths
     gdf['lcc_length'] = lcc_lengths
+    gdf['link_length'] = edge_lengths
 
     # add initial row to represent state of network before links are added
     initial_row = {
@@ -320,6 +322,7 @@ def linkbikenet(
         "geometry": None,
         "network_length": initial_network_length,
         "lcc_length": initial_lcc_length,
+        "link_length": 0,
     }
     # Turn it into a one-row GeoDataFrame
     initial_gdf = gpd.GeoDataFrame(
@@ -341,6 +344,7 @@ def linkbikenet(
     gdf['network_length'] = gdf['network_length'].astype(int)
     gdf['lcc_length'] = gdf['lcc_length'].astype(int)
     gdf['lcc_gain'] = gdf['lcc_gain'].astype(int)
+    gdf['link_length'] = gdf['link_length'].astype(int)
     gdf['lcc_share'] = gdf['lcc_share'].round(4)
     edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
 

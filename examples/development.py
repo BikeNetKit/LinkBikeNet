@@ -2,4 +2,7 @@
 
 import linkbikenet as lbn
 
-edges_ordered = lbn.linkbikenet("Riga")
+edges_ordered = lbn.linkbikenet(
+	"Riga", 
+	connection_strategy='closest_components'
+)
