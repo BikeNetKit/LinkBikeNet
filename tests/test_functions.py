@@ -1,6 +1,9 @@
 import networkx as nx
 import pytest
 from linkbikenet.functions import *
+from linkbikenet import constants, settings
+
+constants.TOP_CLOSEST_COMPONENTS = 1
 
 @pytest.fixture
 def create_test_components_largest():
@@ -12,12 +15,21 @@ def create_test_components_largest():
     return wcc
 
 @pytest.fixture
+def create_test_graph_largest():
+    G = nx.Graph()
+    G.add_nodes_from([(1, {"x": 1, "y": 2}), (2, {"x": 5, "y": 6}), (3, {"x": 7, "y": 8}), (4, {"x": 10, "y": 10}), (5, {"x": 11, "y": 11}), (6, {"x": 15, "y": 20})])
+    G.add_edges_from([(1, 2, {'length': 5}), (2, 3, {'length': 2}), (1, 3, {'length': 7}), (4, 5, {'length': 1})])
+    G.add_edges_from([(3, 4, {'length': 1})])
+    return G
+
+@pytest.fixture
 def create_validation_pair_largest():
     pair = 3,4
     return pair
 
-def test_pair_between_largest_components(create_test_components_largest, create_validation_pair_largest):
-    assert pair_between_largest_components(create_test_components_largest) == create_validation_pair_largest
+def test_pair_between_largest_components(create_test_components_largest, create_test_graph_largest, create_validation_pair_largest):
+    res = pair_between_largest_components(create_test_graph_largest, create_test_components_largest).iloc[0]
+    assert (res.lcc_nodeid, res.comp_nodeid) == create_validation_pair_largest
 
 
 @pytest.fixture
@@ -35,7 +47,8 @@ def create_validation_pair_nearest():
     return pair
 
 def test_pair_between_nearest_components(create_test_components_nearest, create_validation_pair_nearest):
-    assert pair_between_largest_and_closest_components(create_test_components_nearest) == create_validation_pair_nearest
+    res = pair_between_largest_and_closest_components(create_test_components_nearest).iloc[0]
+    assert (res.lcc_nodeid, res.comp_nodeid) == create_validation_pair_nearest
 
 @pytest.fixture
 def create_test_components_closest():
@@ -52,4 +65,5 @@ def create_validation_pair_closest():
     return pair
 
 def test_pair_between_closest_components(create_test_components_closest, create_validation_pair_closest):
-    assert pair_between_closest_components(create_test_components_closest) == create_validation_pair_closest
+    res = pair_between_closest_components(create_test_components_closest).iloc[0]
+    assert (res.lcc_nodeid, res.comp_nodeid) == create_validation_pair_closest

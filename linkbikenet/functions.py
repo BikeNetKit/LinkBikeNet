@@ -260,7 +260,6 @@ def pair_between_largest_components(G, wcc):
     G2 = wcc[1]
     best_topn_distance = np.inf
 
-
     try: # Sanity check if connectable
         sp = nx.shortest_path(G, list(G1.nodes())[0], list(G2.nodes())[0])
     except nx.NetworkXNoPath:
