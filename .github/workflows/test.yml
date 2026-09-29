@@ -54,9 +54,7 @@ jobs:
         python-version: ["3.11, 3.14"]
         os: [ ubuntu-latest ]
         submodule:
-          - {
-            name: "Functions",
-            pytest_args: "tests/test_functions.py" }
+          - { name: "Functions", pytest_args: "tests/test_functions.py" }
       fail-fast: false
 
     name: ${{ matrix.submodule.name }} (${{ matrix.python-version }} on ${{ matrix.os }})
@@ -77,8 +75,8 @@ jobs:
         with:
           create-args: python=${{ matrix.python-version }}
           environment-file: environment-dev.yml
-          cache-environment: true
-          cache-environment-key: W${{ env.WEEK }}
+          cache-environment: false
+          # cache-environment-key: W${{ env.WEEK }}
 
       - name: Install linkbikenet
         run: pip install --no-build-isolation --no-deps -e .
@@ -91,4 +89,4 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: BikeNetKit/GrowBikeNet
+          slug: BikeNetKit/LinkBikeNet
