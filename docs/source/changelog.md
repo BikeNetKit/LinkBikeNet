@@ -1,3 +1,13 @@
+## Version 0.8.0 (2026-09-29)
+
+- 🐛 Fixed shortest path overlaps with bike infrastructure
+- 🐛 Changed euclidian to network distances for components
+- 🐛 Fixed components connected underway not considered in L2S strategy
+- ✨ Implemented heuristic of top N closest component/node candidates
+- ✨ Extended bike network definition
+- ✨ Added link_length and num_comps_added fields
+- 💄 Finished styling and polishing tqdm progress bars
+
 ## Version 0.7.2 (2026-09-25)
 
 - ✨ added boundary file import
