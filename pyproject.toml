@@ -7,7 +7,7 @@ name = "linkbikenet"
 version = "0.8.0"
 authors = [
   { name = "Manuel Knepper" },
-  { name = "Luis Guillermo Natera Orozco"}
+  { name = "Luis Guillermo Natera Orozco"},
   { name = "Michael Szell", email = "michael@szell.net"},
 ]
 maintainers = [
