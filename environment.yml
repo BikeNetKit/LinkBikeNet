@@ -4,5 +4,6 @@ channels:
 dependencies:
   - python>=3.12
   - osmnx>=2
+  - scipy
   - geojson
   - tqdm
