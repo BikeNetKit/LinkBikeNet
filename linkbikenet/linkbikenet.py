@@ -108,7 +108,7 @@ def linkbikenet(
         city_boundary = ox.geocoder.geocode_to_gdf(city_query)
 
     if import_files['bike_network'] is not None:
-        progress_bar = initialize_progress_bar("Importing bike network data", 1, "network")
+        progress_bar = initialize_progress_bar("Importing network data", 1, "network")
         h = import_bike_network(import_files['bike_network'])
         nodes_h = ox.graph_to_gdfs(h, nodes=True, edges=False, node_geometry=True)
         proj_crs = resolve_crs_calculations(nodes_h, settings.crs_projected)
@@ -116,7 +116,7 @@ def linkbikenet(
         h = nx.Graph(h)
 
     if import_files['street_network'] is not None:
-        progress_bar = initialize_progress_bar("Importing bike network data", 1, "network")
+        progress_bar = initialize_progress_bar("Importing network data", 1, "network")
         g = import_network(import_files['street_network'])
 
     else:
@@ -251,11 +251,11 @@ def linkbikenet(
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_largest_and_closest_components(components_sorted)
-            if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
-                continue
+            if pair_candidates is None: # Completely disconnected - ignore it
+                continue # To do: remove component
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             if pairinfo['path'] is None: # Completely disconnected - ignore it
-                continue
+                continue # To do: remove component
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
@@ -279,11 +279,11 @@ def linkbikenet(
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_closest_components(components_sorted)
-            if pair_candidates.isnull().values.all(): # Completely disconnected - ignore it
-                continue
+            if pair_candidates is None: # Completely disconnected - ignore it
+                continue # To do: remove component
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             if pairinfo['path'] is None: # Completely disconnected - ignore it
-                continue
+                continue # To do: remove component
             pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()

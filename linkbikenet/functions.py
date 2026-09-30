@@ -256,6 +256,7 @@ def pair_between_largest_components(G, wcc):
         the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
         'lcc', 'comp'
     """
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     G1 = wcc[0]
     G2 = wcc[1]
     best_topn_distance = np.inf
@@ -274,7 +275,6 @@ def pair_between_largest_components(G, wcc):
     # Build KD-tree
     tree = cKDTree(coords2)
 
-    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     # Query the nearest node in G2 for every node in G1
     for n1, data in G1.nodes(data=True):
         coord = np.array([data["x"], data["y"]])
@@ -294,6 +294,8 @@ def pair_between_largest_components(G, wcc):
             closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
             closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
             best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    if closest_pairs.empty:
+        return None
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
 def get_underway_connections(H, pairinfo, components_sorted):
@@ -340,7 +342,9 @@ def pair_between_largest_and_closest_components(wcc):
         the following info: 'lcc_nodeid', 'comp_nodeid', 'distance_eucl', 
         'lcc', 'comp'
     """
+    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     lcc = wcc[0]
+    best_topn_distance = np.inf
 
     # Build KD-tree for the largest component
     lcc_nodes = list(lcc.nodes())
@@ -350,7 +354,6 @@ def pair_between_largest_and_closest_components(wcc):
     ])
     tree = cKDTree(lcc_xy)
 
-    closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     # Compare every remaining component to the lcc
     for comp in wcc[1:]:
         comp_nodes = list(comp.nodes())
@@ -359,8 +362,29 @@ def pair_between_largest_and_closest_components(wcc):
             for n in comp_nodes
         ])
         distances, indices = tree.query(comp_xy)
-        i = np.argmin(distances)
-        closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[i]], comp_nodes[i], distances[i], lcc, comp] # To do: Optimize. Never grow a dataframe. Could use code from pair_between_closest_components()
+        k = np.argmin(distances)
+        # if type(distances[k]) is not float: # If all are disconnected, abort
+        #     print(distances[k], type(distances[k]))
+        #     sys.exit()
+        #     continue
+        if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
+            closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[k]], comp_nodes[k], float(distances[k]), lcc, comp]
+            closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+        elif distances[k] < best_topn_distance: # Append only if better than top N
+            new_row = pd.DataFrame({
+                'lcc_nodeid': [lcc_nodes[indices[k]]],
+                'comp_nodeid': [comp_nodes[k]],
+                'distance_eucl': [float(distances[k])],
+                'lcc': [lcc],
+                'comp': [comp],
+                })
+            closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
+            closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
+            best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+
+    if closest_pairs.empty:
+        return None
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
 def pair_between_closest_components(wcc):
@@ -382,28 +406,29 @@ def pair_between_closest_components(wcc):
     closest_pairs = pd.DataFrame(columns=['lcc_nodeid','comp_nodeid','distance_eucl','lcc','comp'])
     best_topn_distance = np.inf
 
+
     for i in range(len(wcc) - 1):
-        G1 = wcc[i]
-        nodes1 = list(G1.nodes())
+        lcc = wcc[i]
+        nodes1 = list(lcc.nodes())
         coords1 = np.array([
-            (G1.nodes[n]["x"], G1.nodes[n]["y"])
+            (lcc.nodes[n]["x"], lcc.nodes[n]["y"])
             for n in nodes1
         ])
         tree = cKDTree(coords1)
 
-        # By construction, G1 is larger than G2
+        # By construction, lcc is larger than comp
         for j in range(i + 1, len(wcc)):
-            G2 = wcc[j]
-            nodes2 = list(G2.nodes())
+            comp = wcc[j]
+            nodes2 = list(comp.nodes())
             coords2 = np.array([
-                (G2.nodes[n]["x"], G2.nodes[n]["y"])
+                (comp.nodes[n]["x"], comp.nodes[n]["y"])
                 for n in nodes2
             ])
 
             distances, indices = tree.query(coords2)
             k = np.argmin(distances)
             if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
-                closest_pairs.loc[len(closest_pairs)] = [nodes1[indices[k]], nodes2[k], distances[k], G1, G2]
+                closest_pairs.loc[len(closest_pairs)] = [nodes1[indices[k]], nodes2[k], distances[k], lcc, comp]
                 closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
                 best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
             elif distances[k] < best_topn_distance: # Append only if better than top N
@@ -411,12 +436,14 @@ def pair_between_closest_components(wcc):
                     'lcc_nodeid': [nodes1[indices[k]]],
                     'comp_nodeid': [nodes2[k]],
                     'distance_eucl': [distances[k]],
-                    'lcc': [G1],
-                    'comp': [G2],
+                    'lcc': [lcc],
+                    'comp': [comp],
                     })
                 closest_pairs = pd.concat([closest_pairs, new_row]).reset_index(drop=True)
                 closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
                 best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
+    if closest_pairs.empty:
+        return None
     return closest_pairs
 
 
