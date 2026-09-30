@@ -1,3 +1,8 @@
+## Version 0.8.1 (2026-09-30)
+
+- 🐛 Fixed L2C crashing before 100%
+- 💄 Polished tqdm table
+
 ## Version 0.8.0 (2026-09-29)
 
 - 🐛 Fixed shortest path overlaps with bike infrastructure
