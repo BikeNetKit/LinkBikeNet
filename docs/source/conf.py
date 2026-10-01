@@ -49,7 +49,7 @@ source_suffix = {
     '.myst': 'myst-nb',
 }
 ogp_site_url = 'https://docs.bikenetkit.org/LinkBikeNet/'
-ogp_image = '_static/logo_linkbikenet_og.png'
+ogp_image = '_static/logo_linkbikenet_og.jpg'
 ogp_description_length = 125
 myst_enable_extensions = ["html_admonition"]
 nb_execution_mode = 'auto'
