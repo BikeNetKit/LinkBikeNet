@@ -41,12 +41,15 @@ extensions = [
     "matplotlib.sphinxext.plot_directive",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinx_copybutton",
+    'sphinxext.opengraph',
 ]
 source_suffix = {
     '.rst': 'restructuredtext',
     '.ipynb': 'myst-nb',
     '.myst': 'myst-nb',
 }
+ogp_site_url = 'https://docs.bikenetkit.org/LinkBikeNet/'
+ogp_image = '_static/logo_linkbikenet.svg'
 myst_enable_extensions = ["html_admonition"]
 nb_execution_mode = 'auto'
 nb_execution_allow_errors = False # Let's be strict so we don't publish completely broken docs
@@ -187,4 +190,4 @@ def linkcode_resolve(domain, info):
     except Exception:
         filename = info["module"].replace(".", "/") + ".py"
     tag = "main" if "+" in release else ("v" + release)
-    return f"https://github.com/LinkNetKit/LinkBikeNet/blob/{tag}/{filename}"
+    return f"https://github.com/BikeNetKit/LinkBikeNet/blob/{tag}/{filename}"

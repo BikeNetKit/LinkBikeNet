@@ -1,3 +1,5 @@
+# Changelog
+
 ## Version 0.8.2 (2026-10-01)
 
 - 📄 Added missing license file
