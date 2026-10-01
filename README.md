@@ -23,17 +23,24 @@ For alternative approaches, consider using [GrowBikeNet](https://github.com/Bike
 
 ### The easy way
 
-The currently default way to install LinkBikeNet is using pip:
+The currently recommended way to install LinkBikeNet is using [`conda`](https://docs.conda.io/projects/conda/en/latest/index.html):
 
 ```
-pip install linkbikenet
+conda install linkbikenet
 ```
+
+### Advanced and development installations
+ See our [installation docs](https://docs.bikenetkit.org/LinkBikeNet/installation/) for details.
 
 ## Usage
-In development.
+
+We provide a minimum working example in two formats:
+
+- Python script ([examples/mwe.py](examples/mwe.py))
+- Jupyter notebook ([examples/mwe.ipynb](examples/mwe.ipynb))
 
 ## Docs
-In development.
+Find more information in our docs: [https://docs.bikenetkit.org/LinkBikeNet/](https://docs.bikenetkit.org/LinkBikeNet/)
 
 ## Origin
 The source code builds on [the code from the research paper](https://github.com/nateraluis/bicycle-network-growth) _Data-driven strategies for optimal bicycle network growth_.

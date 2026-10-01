@@ -187,4 +187,4 @@ def linkcode_resolve(domain, info):
     except Exception:
         filename = info["module"].replace(".", "/") + ".py"
     tag = "main" if "+" in release else ("v" + release)
-    return f"https://github.com/LinkNetKit/LinkBikeNet/blob/{tag}/{filename}"
+    return f"https://github.com/BikeNetKit/LinkBikeNet/blob/{tag}/{filename}"
