@@ -51,6 +51,9 @@ source_suffix = {
 ogp_site_url = 'https://docs.bikenetkit.org/LinkBikeNet/'
 ogp_image = '_static/logo_linkbikenet_og.jpg'
 ogp_description_length = 125
+ogp_custom_meta_tags = [
+    '<meta property="og:description" content="The Python package LinkBikeNet finds links between the disconnected components in a city’s bicycle network." />',
+]
 myst_enable_extensions = ["html_admonition"]
 nb_execution_mode = 'auto'
 nb_execution_allow_errors = False # Let's be strict so we don't publish completely broken docs
