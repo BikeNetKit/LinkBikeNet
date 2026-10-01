@@ -2,4 +2,4 @@
 
 import linkbikenet as lbn
 
-edges_ordered = lbn.linkbikenet("Frederiksberg Municipality")
+linked_components = lbn.linkbikenet("Frederiksberg Municipality")
