@@ -49,7 +49,8 @@ source_suffix = {
     '.myst': 'myst-nb',
 }
 ogp_site_url = 'https://docs.bikenetkit.org/LinkBikeNet/'
-ogp_image = '_static/logo_linkbikenet.svg'
+ogp_image = '_static/logo_linkbikenet_og.png'
+ogp_description_length = 125
 myst_enable_extensions = ["html_admonition"]
 nb_execution_mode = 'auto'
 nb_execution_allow_errors = False # Let's be strict so we don't publish completely broken docs
