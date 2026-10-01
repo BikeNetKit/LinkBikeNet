@@ -1,6 +1,6 @@
 # <a href="https://docs.bikenetkit.org/LinkBikeNet/"><img src="https://github.com/BikeNetKit/LinkBikeNet/raw/main/docs/source/_static/logo_linkbikenet.svg" alt="LinkBikeNet" width="276.6" height="59"></a>
 
-[![Conda Version](https://img.shields.io/conda/vn/conda-forge/growbikenet?color=10d249)](https://anaconda.org/conda-forge/linkbikenet)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/linkbikenet?color=10d249)](https://anaconda.org/conda-forge/linkbikenet)
 [![PyPI - Version](https://img.shields.io/pypi/v/linkbikenet?color=10d249)](https://pypi.org/project/LinkBikeNet/)
 [![Docs](https://github.com/BikeNetKit/LinkBikeNet/actions/workflows/docs.yml/badge.svg)](https://docs.bikenetkit.org/LinkBikeNet/)
 [![Test](https://github.com/BikeNetKit/LinkBikeNet/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/BikeNetKit/LinkBikeNet/actions/workflows/test.yml)
