@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linkbikenet"
-version = "0.8.1"
+version = "0.8.2"
 authors = [
   { name = "Manuel Knepper" },
-  { name = "Luis Guillermo Natera Orozco"},
   { name = "Michael Szell", email = "michael@szell.net"},
+  { name = "Luis Guillermo Natera Orozco"},
 ]
 maintainers = [
     { name = "Michael Szell", email = "michael@szell.net"},
