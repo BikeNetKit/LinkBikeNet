@@ -23,5 +23,6 @@ dependencies:
   - pip:
       # not available via conda-forge:
       - sphinx-copybutton
+      - sphinxext-opengraph
       - furo
       - linkbikenet
