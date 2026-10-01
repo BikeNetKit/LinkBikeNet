@@ -1,3 +1,8 @@
+## Version 0.8.2 (2026-10-01)
+
+- 📄 Added missing license file
+- 🐛 Removed motor_vehicle condition from pbi mapping
+
 ## Version 0.8.1 (2026-09-30)
 
 - 🐛 Fixed L2C crashing before 100%
