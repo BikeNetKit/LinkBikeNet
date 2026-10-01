@@ -203,17 +203,18 @@ def find_edges_to_drop(g):
     return edges_to_drop
 
 def graph_edges_to_gdf(G):
-    """
-    creates a geodataframe with edges attributes from a simple nx graph
+    """Create a geodataframe with edges attributes from a simple nx graph.
+
     Parameters
     ----------
-    G: networkx.Graph
-        undirected simple graph representing the street network with weighted edges
+    G : networkx.Graph
+        Undirected simple graph representing the street network with weighted 
+        edges.
 
     Returns
     -------
-    edges_gdf: geopandas.GeoDataFrame
-        geodataframe with edges from G, including edge attributes
+    edges_gdf : geopandas.GeoDataFrame
+        Geodataframe with edges from G, including edge attributes.
     """
     rows = []
     for u, v, data in G.edges(data=True):
