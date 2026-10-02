@@ -6,6 +6,7 @@ import osmnx as ox
 import networkx as nx
 import pandas as pd
 import geopandas as gpd
+import warnings
 from collections import defaultdict
 from tqdm import tqdm
 import time
@@ -105,8 +106,8 @@ def linkbikenet(
     # check if user input is valid
     if type(city_query) != str:
         raise TypeError("city_name must be a string")
-    if connection_strategy != "largest_to_second" and connection_strategy != "largest_to_closest" and connection_strategy != "closest_components":
-        raise TypeError("connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
+    if connection_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
+        raise TypeError("Connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
     if city_id is not None:
@@ -116,7 +117,7 @@ def linkbikenet(
         raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
     if type(import_files) is not dict:
         raise TypeError("import_files must be a dictionary")
-        # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
+    # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
     import_files = defaultdict(lambda: None, import_files)
 
     _print_header(city_query, connection_strategy)
@@ -426,30 +427,33 @@ def linkbikenet(
         )
 
     if export_data:
-        # Cleanup
-        keepedgedata = ['length', 'lcc_step', 'geometry', 'u', 'v']
-        for p in edges_pbi_gdf.keys():
-            if p not in keepedgedata:
-                del edges_pbi_gdf[p] 
+        if len(linked_components)<2:
+            warnings.warn("Not enough components to link. No data was exported.")
+        else:
+            # Cleanup
+            keepedgedata = ['length', 'lcc_step', 'geometry', 'u', 'v']
+            for p in edges_pbi_gdf.keys():
+                if p not in keepedgedata:
+                    del edges_pbi_gdf[p] 
 
-        city_boundary.to_crs(epsg=4326, inplace=True)
-        if export_file_format == "geojson":
-            progress_bar = initialize_progress_bar("Exporting data", 3, "file")
-            linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
-            progress_bar.update(1)
-            edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
-            progress_bar.update(1)
-            city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
-            progress_bar.update(1)
-        elif export_file_format == "gpkg":
-            progress_bar = initialize_progress_bar("Exporting data", 1, "file")
-            linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Identified links")
-            edges_pbi_gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Existing bike network",
-                                  append=True)
-            city_boundary.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="City boundary",
-                                  append=True)
-            progress_bar.update(1)
-        progress_bar.close()
+            city_boundary.to_crs(epsg=4326, inplace=True)
+            if export_file_format == "geojson":
+                progress_bar = initialize_progress_bar("Exporting data", 3, "file")
+                linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
+                progress_bar.update(1)
+                edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+                progress_bar.update(1)
+                city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
+                progress_bar.update(1)
+            elif export_file_format == "gpkg":
+                progress_bar = initialize_progress_bar("Exporting data", 1, "file")
+                linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Identified links")
+                edges_pbi_gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Existing bike network",
+                                      append=True)
+                city_boundary.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="City boundary",
+                                      append=True)
+                progress_bar.update(1)
+            progress_bar.close()
 
     # Cleanup, finalize
     endtime = time.time()
