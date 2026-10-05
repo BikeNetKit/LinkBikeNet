@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 0.8.3 (2026-10-05)
+
+- 🐛 Added missing lcc_steps
+- 🐛 Accounted for all unintended connected components
+- ♻️ Refactored component linking
+
 ## Version 0.8.2 (2026-10-01)
 
 - 📄 Added missing license file

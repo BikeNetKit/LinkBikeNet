@@ -2,7 +2,7 @@ schema_version: 1
 
 context:
   python_min: "3.10"
-  version: "0.8.2"
+  version: "0.8.3"
 
 package:
   name: linkbikenet
