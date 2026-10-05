@@ -14,27 +14,28 @@ pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
 
 from linkbikenet.functions import (
-    initialize_progress_bar,
-    import_network,
-    import_bike_network,
-    resolve_crs_calculations,
-    map_edges_to_bike_infrastructure,
+    _print_header,
+    _print_footer,
+    calculate_network_statistics,
+    create_gdf_with_geoms,
     find_edges_to_drop,
+    get_correct_edgetuples,
     get_underway_connections,
     graph_edges_to_gdf,
+    link_components,
     pair_between_largest_components,
     pair_between_largest_and_closest_components,
     pair_between_closest_components,
-    _print_footer,
-    _print_header,
-    get_correct_edgetuples,
-    create_gdf_with_geoms,
-    shortest_path_components,
-    slugify,
-    calculate_network_statistics,
-    mark_joined_component,
-    shortest_path_components_from_candidates,
     path_to_edges,
+    initialize_progress_bar,
+    import_network,
+    import_bike_network,
+    map_edges_to_bike_infrastructure,
+    mark_joined_component,
+    resolve_crs_calculations,
+    shortest_path_components,
+    shortest_path_components_from_candidates,
+    slugify,
 )
 
 def linkbikenet(
@@ -195,133 +196,13 @@ def linkbikenet(
     else:
         H = G.edge_subgraph(edges).copy()
 
-    # Compute all connected components and sort them by length, descending
-    components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
-        [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-
-    # Nodes belonging to the original largest component
-    main_component = set(components_sorted[0])
-
-    # Mark all edges in the original largest component as step 0
-    for u, v in H.subgraph(main_component).edges():
-        H[u][v]["lcc_step"] = 0
-
     progress_bar.update(1)
     progress_bar.close()
 
-    
-    closest_pairs = []
-    closest_components = []
-    total = len(components_sorted)-1
-    step = 1
-
-    # check which strategy was chosen and execute the corresponding algorithm
-    pathedges_all = set()
-    paths_all = []
-    num_comps_added = []
-    comps_remaining = []
-    if connection_strategy == "largest_to_second":
-        progress_bar = initialize_progress_bar("Linking components", total, "component")
-        for i in range(total):
-            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
-                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            if len(components_sorted) < 2:
-                progress_bar.update(total-progress_bar.n)
-                break
-            comps_remaining.append(len(components_sorted))
-            pair_candidates = pair_between_largest_components(G, components_sorted)
-            if pair_candidates is None: # Completely disconnected - remove it
-                for node in components_sorted[1]:
-                    H.remove_node(node)
-                continue
-            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
-            if pairinfo['path'] is None: # Completely disconnected - remove it
-                for node in components_sorted[1]:
-                    H.remove_node(node)
-                continue
-            pathedges = set(path_to_edges(pairinfo['path']))
-
-            # Add unintended connections on the way
-            components_connected_underway = get_underway_connections(H, pairinfo, components_sorted)
-            num_comps_added.append(len(components_connected_underway)-1)
-            progress_bar.update(len(components_connected_underway)-1)
-            components_connected_underway.remove(components_sorted[0]) # Remove largest component
-            components_connected_underway.remove(components_sorted[1]) # Remove second largest
-            for c_underway in components_connected_underway: # Only add in-between components
-                mark_joined_component(H, c_underway, step)
-
-            # Add path
-            paths_all.append(pairinfo['path'])
-            G_path = G.subgraph(pairinfo['path']).copy()
-            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
-            H = nx.compose(H, G_path)
-            mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
-            step += 1
-        progress_bar.close()
-
-    elif connection_strategy == "largest_to_closest":
-        for i in tqdm(
-                range(total),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
-                leave=True,
-                unit="component",
-                total=total,
-                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
-                disable=settings.silent,
-            ):
-            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
-                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair_candidates = pair_between_largest_and_closest_components(components_sorted)
-            if pair_candidates is None: # Completely disconnected - ignore it
-                continue # To do: remove component
-            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
-            if pairinfo['path'] is None: # Completely disconnected - ignore it
-                continue # To do: remove component
-            pathedges = path_to_edges(pairinfo['path'])
-            paths_all.append(pairinfo['path'])
-            G_path = G.subgraph(pairinfo['path']).copy()
-            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
-            H = nx.compose(H, G_path)
-            mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
-            num_comps_added.append(1)
-            step += 1
-
-    elif connection_strategy == "closest_components":
-        for i in tqdm(
-                range(total),
-                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
-                leave=True,
-                unit="component",
-                total=total,
-                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
-                disable=settings.silent,
-            ):
-            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
-                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
-            pair_candidates = pair_between_closest_components(components_sorted)
-            if pair_candidates is None: # Completely disconnected - ignore it
-                continue # To do: remove component
-            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
-            if pairinfo['path'] is None: # Completely disconnected - ignore it
-                continue # To do: remove component
-            pathedges = path_to_edges(pairinfo['path'])
-            paths_all.append(pairinfo['path'])
-            G_path = G.subgraph(pairinfo['path']).copy()
-            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
-            H = nx.compose(H, G_path)
-            mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
-            num_comps_added.append(1)
-            step += 1
+    H, paths_all, pathedges_all, num_comps_added = link_components(connection_strategy, H, G)
 
     progress_bar = initialize_progress_bar("Postprocessing data", 3)
-    
-    H.remove_edges_from(pathedges_all)
     edges_pbi_gdf = graph_edges_to_gdf(H)
-
-  
     progress_bar.update(1)
 
     edges_gdf = graph_edges_to_gdf(G)
