@@ -241,6 +241,179 @@ def graph_edges_to_gdf(G):
 
     return edges_gdf
 
+
+def link_components(connection_strategy, H, G):
+    """Link components with the given strategy.
+
+    Parameters
+    ----------
+    connection_strategy : string
+        Strategy to use for connecting between components.
+    H : networkx.Graph
+        Graph of bicycle network components.
+    G : networkx.Graph
+        Graph of the street network.
+
+    Returns
+    -------
+    H : networkx.Graph
+        Graph of bicycle network components, with added link paths.
+    paths_all : list
+        List of nodes of all added link paths.
+    path_edges_all : set
+        Set of edges of all added link paths.
+    num_comps_added : list
+        List of how many components were added in each step.
+    """
+
+    # To do: Merge at least copy-pasted code for l2c and cc
+
+    # Compute all connected components and sort them by length, descending
+    components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+        [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+
+    # Nodes belonging to the original largest component
+    main_component = set(components_sorted[0])
+
+    # Mark all edges in the original largest component as step 0
+    for u, v in H.subgraph(main_component).edges():
+        H[u][v]["lcc_step"] = 0
+
+    closest_pairs = []
+    closest_components = []
+    total = len(components_sorted)-1
+    step = 1
+
+    # check which strategy was chosen and execute the corresponding algorithm
+    pathedges_all = set()
+    paths_all = []
+    num_comps_added = []
+    comps_remaining = []
+    if connection_strategy == "largest_to_second":
+        progress_bar = initialize_progress_bar("Linking components", total, "component")
+        for i in range(total):
+            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+            if len(components_sorted) < 2:
+                progress_bar.update(total-progress_bar.n)
+                break
+            comps_remaining.append(len(components_sorted))
+            pair_candidates = pair_between_largest_components(G, components_sorted)
+            if pair_candidates is None: # Completely disconnected - remove it
+                for node in components_sorted[1]:
+                    H.remove_node(node)
+                continue
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - remove it
+                for node in components_sorted[1]:
+                    H.remove_node(node)
+                continue
+            pathedges = set(path_to_edges(pairinfo['path']))
+
+            # Add unintended connections on the way
+            components_connected_underway,_ = get_underway_connections(H, pairinfo, components_sorted)
+            components_connected_underway = set(components_connected_underway)
+            components_connected_underway.remove(components_sorted[0]) # Remove largest component
+            components_connected_underway.remove(components_sorted[1]) # Remove second largest
+            for c_underway in components_connected_underway: # Only add in-between components
+                mark_joined_component(H, c_underway, step)
+
+            paths_all.append(pairinfo['path'])
+            G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
+            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
+            H = nx.compose(H, G_path)
+            mark_joined_component(H, pairinfo['lcc'], step)
+            mark_joined_component(H, pairinfo['comp'], step)
+            num_comps_added.append(len(components_connected_underway)+1)
+            progress_bar.update(len(components_connected_underway)+1)
+            step += 1
+        progress_bar.close()
+
+    elif connection_strategy == "largest_to_closest":
+        for i in tqdm(
+                range(total),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
+                leave=True,
+                unit="component",
+                total=total,
+                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+                disable=settings.silent,
+            ):
+            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+            pair_candidates = pair_between_largest_and_closest_components(components_sorted)
+            if pair_candidates is None: # Completely disconnected - ignore it
+                continue # To do: remove component
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            if pairinfo['path'] is None: # Completely disconnected - ignore it
+                continue # To do: remove component
+            paths_all.append(pairinfo['path'])
+            G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
+            nx.set_edge_attributes(G_path, values=step, name="lcc_step")
+            H = nx.compose(H, G_path)
+            mark_joined_component(H, pairinfo['lcc'], step)
+            mark_joined_component(H, pairinfo['comp'], step)
+            num_comps_added.append(1)
+            step += 1
+
+    elif connection_strategy == "closest_components":
+        numleft = []
+        for i in tqdm(
+                range(total),
+                desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
+                leave=True,
+                unit="component",
+                total=total,
+                bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
+                disable=settings.silent,
+            ):
+            components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
+                [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
+            pair_candidates = pair_between_closest_components(components_sorted)
+            pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
+            # There might be an unintended component connected on the way. 
+            # Take the closest.
+            components_connected_underway, connection_points = get_underway_connections(H, pairinfo, components_sorted)
+            if len(components_connected_underway)>2: # There was one
+                pairinfo.comp_nodeid = connection_points[1]
+                pairinfo.distance_nw = nx.shortest_path_length(G,pairinfo.lcc_nodeid, pairinfo.comp_nodeid, weight="length")
+                pairinfo.path = nx.shortest_path(G,pairinfo.lcc_nodeid, pairinfo.comp_nodeid)
+                pairinfo.comp = components_connected_underway[1]
+
+            paths_all.append(pairinfo['path'])
+            G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
+            
+            # if u_in_main or v_in_main:
+            #     nx.set_edge_attributes(G_path, values=None, name="lcc_step")
+            H = nx.compose(H, G_path)
+            # We know that pairinfo['lcc'] is the bigger and pairinfo['comp']
+            # is the smaller component. But these could be any two components,
+            # not necessarily the lcc. We need to keep track of the lcc 
+            # (main_component) to add the lcc_step at the right point.
+            u_in_main = pairinfo['path'][0] in main_component
+            v_in_main = pairinfo['path'][-1] in main_component
+            if u_in_main or v_in_main:
+                if u_in_main:
+                    component_nonmain = pairinfo['comp']
+                else:
+                    component_nonmain = pairinfo['lcc']
+                mark_joined_component(H, component_nonmain, step)
+                main_component.update(component_nonmain)
+                mark_joined_component(H, G_path, step)
+                main_component.update(G_path)
+            
+            num_comps_added.append(1)
+            step += 1
+    H.remove_edges_from(pathedges_all)
+    return H, paths_all, pathedges_all, num_comps_added
+
+
 def pair_between_largest_components(G, wcc):
     """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
     connecting the largest component to the second largest.
@@ -315,16 +488,20 @@ def get_underway_connections(H, pairinfo, components_sorted):
 
     Returns
     -------
-    components_connected_underway : set
-        Set of components that were connected underway. Can be empty.
+    components_connected_underway : list
+        List of components that were connected underway. Can be empty.
+    connection_points : list
+        List of connection point nodes. Can be empty.
     """
-    components_connected_underway = set()
+    components_connected_underway = []
+    connection_points = []
     for node in pairinfo['path']:
         if node in H:
             for component in components_sorted:
                 if node in component:
-                    components_connected_underway.add(component)
-    return components_connected_underway
+                    components_connected_underway.append(component)
+                    connection_points.append(node)
+    return components_connected_underway, connection_points
 
 def pair_between_largest_and_closest_components(wcc):
     """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 

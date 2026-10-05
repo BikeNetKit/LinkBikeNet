@@ -7,7 +7,7 @@ city_id = "aachen_de"
 
 edges_ordered = lbn.linkbikenet(
 	"Aachen", 
-	connection_strategy='largest_to_closest',
+	connection_strategy='closest_components',
 	import_files={
 		'city_boundary': 'boundaries/'+city_id+'.geojson',
         'street_network': 'streetbike_networks/'+city_id+'.gpkg',
