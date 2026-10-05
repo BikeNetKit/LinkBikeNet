@@ -361,7 +361,6 @@ def link_components(connection_strategy, H, G):
             step += 1
 
     elif connection_strategy == "closest_components":
-        numleft = []
         for i in tqdm(
                 range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
@@ -388,9 +387,6 @@ def link_components(connection_strategy, H, G):
             G_path = G.subgraph(pairinfo['path']).copy()
             pathedges = G_path.edges()-H.edges() # New edges must not already exist
             pathedges_all = pathedges_all.union(pathedges)
-            
-            # if u_in_main or v_in_main:
-            #     nx.set_edge_attributes(G_path, values=None, name="lcc_step")
             H = nx.compose(H, G_path)
             # We know that pairinfo['lcc'] is the bigger and pairinfo['comp']
             # is the smaller component. But these could be any two components,
