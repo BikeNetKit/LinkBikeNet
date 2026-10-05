@@ -243,20 +243,21 @@ def linkbikenet(
 
             # Add unintended connections on the way
             components_connected_underway = get_underway_connections(H, pairinfo, components_sorted)
-            num_comps_added.append(len(components_connected_underway)-1)
-            progress_bar.update(len(components_connected_underway)-1)
             components_connected_underway.remove(components_sorted[0]) # Remove largest component
             components_connected_underway.remove(components_sorted[1]) # Remove second largest
             for c_underway in components_connected_underway: # Only add in-between components
                 mark_joined_component(H, c_underway, step)
 
-            # Add path
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
+            mark_joined_component(H, pairinfo['lcc'], step)
             mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
+            num_comps_added.append(len(components_connected_underway)+1)
+            progress_bar.update(len(components_connected_underway)+1)
             step += 1
         progress_bar.close()
 
@@ -278,14 +279,14 @@ def linkbikenet(
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             if pairinfo['path'] is None: # Completely disconnected - ignore it
                 continue # To do: remove component
-            pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['lcc'], step)
             mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
             num_comps_added.append(1)
             step += 1
 
@@ -307,14 +308,14 @@ def linkbikenet(
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             if pairinfo['path'] is None: # Completely disconnected - ignore it
                 continue # To do: remove component
-            pathedges = path_to_edges(pairinfo['path'])
             paths_all.append(pairinfo['path'])
             G_path = G.subgraph(pairinfo['path']).copy()
+            pathedges = G_path.edges()-H.edges() # New edges must not already exist
+            pathedges_all = pathedges_all.union(pathedges)
             nx.set_edge_attributes(G_path, values=step, name="lcc_step")
             H = nx.compose(H, G_path)
             mark_joined_component(H, pairinfo['lcc'], step)
             mark_joined_component(H, pairinfo['comp'], step)
-            pathedges_all = pathedges_all.union(pathedges)
             num_comps_added.append(1)
             step += 1
 
@@ -322,8 +323,6 @@ def linkbikenet(
     
     H.remove_edges_from(pathedges_all)
     edges_pbi_gdf = graph_edges_to_gdf(H)
-
-  
     progress_bar.update(1)
 
     edges_gdf = graph_edges_to_gdf(G)

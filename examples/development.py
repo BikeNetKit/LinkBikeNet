@@ -3,10 +3,10 @@
 import linkbikenet as lbn
 
 lbn.settings.import_path = '/Users/mszell/Tresorit/bikenetkitshare/'
-city_id = "lida_by"
+city_id = "aachen_de"
 
 edges_ordered = lbn.linkbikenet(
-	"Lida", 
+	"Aachen", 
 	connection_strategy='largest_to_closest',
 	import_files={
 		'city_boundary': 'boundaries/'+city_id+'.geojson',
