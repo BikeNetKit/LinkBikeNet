@@ -628,7 +628,8 @@ def mark_joined_component(H, component, step):
         the step at which the component is connected to the largest connected component
     """
     for u, v in H.subgraph(component).edges():
-        H[u][v]["lcc_step"] = step
+        if "lcc_step" not in H[u][v]:
+            H[u][v]["lcc_step"] = step
 
 def shortest_path_components(G, pair_components, path):
     """Starting from an initial shortest path between a pair of nodes in two 

@@ -3,11 +3,11 @@
 import linkbikenet as lbn
 
 lbn.settings.import_path = '/Users/mszell/Tresorit/bikenetkitshare/'
-city_id = "alchevsk_ua"
+city_id = "lida_by"
 
 edges_ordered = lbn.linkbikenet(
-	"Alchevsk", 
-	connection_strategy='closest_components',
+	"Lida", 
+	connection_strategy='largest_to_closest',
 	import_files={
 		'city_boundary': 'boundaries/'+city_id+'.geojson',
         'street_network': 'streetbike_networks/'+city_id+'.gpkg',
