@@ -272,6 +272,10 @@ def link_components(connection_strategy, H, G):
     components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
         [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
 
+    # Abort if less than 2 components. Linking needs at least 2.
+    if len(components_sorted) < 2:
+        raise RuntimeError("Found less than 2 network components, but more are needed.")
+
     # Nodes belonging to the original largest component
     main_component = set(components_sorted[0])
 
