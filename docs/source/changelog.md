@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 0.8.4 (2026-10-09)
+
+- 🐛 Accounted for disconnected components
+- ✅ Added main linkbikenet tests
+- 🥅 Implemented catching of error from too few components
+
 ## Version 0.8.3 (2026-10-05)
 
 - 🐛 Added missing lcc_steps
