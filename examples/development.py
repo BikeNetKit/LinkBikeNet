@@ -3,10 +3,10 @@
 import linkbikenet as lbn
 
 lbn.settings.import_path = '/Users/mszell/Tresorit/bikenetkitshare/'
-city_id = "budapest_hu"
+city_id = "oslo_no"
 
 edges_ordered = lbn.linkbikenet(
-	"Budapest", 
+	"Oslo", 
 	connection_strategy='closest_components',
 	import_files={
 		'city_boundary': 'boundaries/'+city_id+'.geojson',
