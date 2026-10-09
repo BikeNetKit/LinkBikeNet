@@ -303,6 +303,10 @@ def link_components(connection_strategy, H, G):
                 break
             comps_remaining.append(len(components_sorted))
             pair_candidates = pair_between_largest_components(G, components_sorted)
+            if pair_candidates.empty: # Completely disconnected - remove it
+                for node in components_sorted[1]:
+                    H.remove_node(node)
+                continue
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             pathedges = set(path_to_edges(pairinfo['path']))
 
@@ -341,11 +345,16 @@ def link_components(connection_strategy, H, G):
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_largest_and_closest_components(components_sorted)
+            if pair_candidates.empty: # Completely disconnected - remove it
+                if len(components_sorted)>1:
+                    for node in components_sorted[1]:
+                        H.remove_node(node)
+                continue
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
 
             # Connect to the closest unintended component on the way. 
             components_connected_underway, connection_points = get_underway_connections(H, pairinfo, components_sorted)
-            if len(components_connected_underway) > 2: # There was one
+            if len(components_connected_underway)>2: # There was one
                 pairinfo.comp_nodeid = connection_points[1]
                 pairinfo.distance_nw = nx.shortest_path_length(G,pairinfo.lcc_nodeid, pairinfo.comp_nodeid, weight="length")
                 pairinfo.path = nx.shortest_path(G,pairinfo.lcc_nodeid, pairinfo.comp_nodeid)
@@ -375,6 +384,8 @@ def link_components(connection_strategy, H, G):
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
                 [l[-1] for l in H.subgraph(c).copy().edges.data('length')]), reverse=True)]
             pair_candidates = pair_between_closest_components(components_sorted)
+            if pair_candidates.empty: # Only disconnected components are left
+                break
             pairinfo = shortest_path_components_from_candidates(G, pair_candidates)
             
             # Connect to the closest unintended component on the way. 
@@ -436,7 +447,7 @@ def pair_between_largest_components(G, wcc):
     try: # Sanity check if connectable
         sp = nx.shortest_path(G, list(G1.nodes())[0], list(G2.nodes())[0])
     except nx.NetworkXNoPath:
-        return None
+        return closest_pairs
 
     # Coordinates of nodes in the second component
     nodes2 = list(G2.nodes())
@@ -467,7 +478,7 @@ def pair_between_largest_components(G, wcc):
             closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
             best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
     if closest_pairs.empty:
-        return None
+        return closest_pairs
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
 def get_underway_connections(H, pairinfo, components_sorted):
@@ -560,7 +571,7 @@ def pair_between_largest_and_closest_components(wcc):
             best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
 
     if closest_pairs.empty:
-        return None
+        return closest_pairs
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
 
 def pair_between_closest_components(wcc):
@@ -619,7 +630,7 @@ def pair_between_closest_components(wcc):
                 closest_pairs = closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS, 'distance_eucl')
                 best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
     if closest_pairs.empty:
-        return None
+        return closest_pairs
     return closest_pairs
 
 
