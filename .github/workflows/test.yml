@@ -54,7 +54,8 @@ jobs:
         python-version: ["3.10", "3.14"]
         os: [ ubuntu-latest ]
         submodule:
-          - { name: "Functions", pytest_args: "tests/test_functions.py" }
+          - { name: "linkbikenet", pytest_args: "tests/test_linkbikenet.py" }
+          - { name: "functions", pytest_args: "tests/test_functions.py" }
       fail-fast: false
 
     name: ${{ matrix.submodule.name }} (${{ matrix.python-version }} on ${{ matrix.os }})
