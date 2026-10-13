@@ -70,7 +70,8 @@ def linkbikenet(
         File format for the data export, relevant if export_data set to True. 
         Default "geojson", also possible "gpkg". If exporting as geojson, 
         generates extra files for street network and city boundary. If 
-        exporting as gkpg, these are added all in one file as extra layers.
+        exporting as gkpg, these are added all in one file as extra layers. 
+        Existing files are overwritten.
     import_files: dict, default {}
         The following key:value entries can be set:
 
@@ -327,11 +328,14 @@ def linkbikenet(
                 city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)
             elif export_file_format == "gpkg":
+                f = settings.export_path['results'] + export_data_filename
+                if os.path.exists(f):
+                    os.remove(f) # mode="w" does not work for to_file with gpkg. It always appends. Therefore, existing file needs to be deleted.
                 progress_bar = initialize_progress_bar("Exporting data", 1, "file")
-                linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Identified links")
-                edges_pbi_gdf.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="Existing bike network",
+                linked_components.to_file(f, driver="GPKG", layer="Identified links")
+                edges_pbi_gdf.to_file(f, driver="GPKG", layer="Existing bike network",
                                       append=True)
-                city_boundary.to_file(settings.export_path['results'] + export_data_filename, driver="GPKG", layer="City boundary",
+                city_boundary.to_file(f, driver="GPKG", layer="City boundary",
                                       append=True)
                 progress_bar.update(1)
             progress_bar.close()
