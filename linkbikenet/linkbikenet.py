@@ -30,7 +30,7 @@ from linkbikenet.functions import (
     initialize_progress_bar,
     import_network,
     import_bike_network,
-    map_edges_to_bike_infrastructure,
+    assign_pbi_to_edges,
     mark_joined_component,
     resolve_crs_calculations,
     shortest_path_components,
@@ -170,7 +170,7 @@ def linkbikenet(
     progress_bar.update(1)
 
     # check which edges have existing bicycle infrastructure and assign "pbi = 1" to them, all other edges get "pbi = 0".
-    g = map_edges_to_bike_infrastructure(g)
+    g = assign_pbi_to_edges(g)
 
     progress_bar.update(1)
 
