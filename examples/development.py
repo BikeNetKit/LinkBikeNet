@@ -8,7 +8,7 @@ lbn.constants.TOP_CLOSEST_COMPONENTS = 5
 
 edges_ordered = lbn.linkbikenet(
 	"Frederiksberg", 
-	connection_strategy='closest_components',
+	connection_strategy='largest_to_closest',
 	import_files={
 		'city_boundary': 'boundaries/'+city_id+'.geojson',
         'street_network': 'streetbike_networks/'+city_id+'.gpkg',
@@ -16,4 +16,4 @@ edges_ordered = lbn.linkbikenet(
     export_file_format = "gpkg",
 )
 
-print(edges_ordered['network_length'])
+# print(edges_ordered['network_length'])
