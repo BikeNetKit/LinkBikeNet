@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 0.9.0 (2026-10-13)
+
+- ⬆️ Added Python 3.15 support
+- ⬆️ Raised minpython to 3.12
+- ⬆️ Updated actions versions
+- 🐛 Fixed init not exposing all modules
+- 🐛 Made gpkg exports overwrite instead of append
+- ♻️ Refactored pbi assignment, getting rid of config
+- ♻️ Refactored osm constants into new osm module, preparing for BikeNetLib
+
 ## Version 0.8.4 (2026-10-09)
 
 - 🐛 Accounted for disconnected components
