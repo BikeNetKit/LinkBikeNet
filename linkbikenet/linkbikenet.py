@@ -58,7 +58,8 @@ def linkbikenet(
         Strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components".
     export_data : bool, optional, default True
         If set to True, data will be saved to a file. The filename is 
-        [slug].gpkg, where slug is a string id made out of city_query.
+        [slug].gpkg, where slug is a string id made out of city_query. Existing
+        files are overwritten.
     city_id : None or str, default None
         If set, the slugified city_id is used in the filename of the data 
         export. For example, a city_id "Athens" will slugify into "athens" in 
@@ -71,7 +72,6 @@ def linkbikenet(
         Default "geojson", also possible "gpkg". If exporting as geojson, 
         generates extra files for street network and city boundary. If 
         exporting as gkpg, these are added all in one file as extra layers. 
-        Existing files are overwritten.
     import_files: dict, default {}
         The following key:value entries can be set:
 
