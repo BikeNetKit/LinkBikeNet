@@ -1,5 +1,5 @@
-"""Global constants for `linkbikenet` that can be tweaked during development, but 
-should not be changed later by the user. Especially technical or internal 
+"""Global constants for `linkbikenet` that can be tweaked during development, 
+but should not be changed later by the user. Especially technical or internal 
 constants start with an underscore.
 
 TOP_CLOSEST_COMPONENTS : int, default 5

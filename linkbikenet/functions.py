@@ -30,7 +30,6 @@ def _print_footer(export_data, endtime, starttime):
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╯")
         if export_data:
             print("Data exported to "+settings.export_path['results'])
-        if export_data or export_plots:
             print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-")
         print("FINISHED IN " + str(datetime.timedelta(seconds = round(endtime - starttime))))
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
