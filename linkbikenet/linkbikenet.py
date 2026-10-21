@@ -40,10 +40,10 @@ from linkbikenet.functions import (
 
 def linkbikenet(
     city_query,
-    connection_strategy = "largest_to_closest",
-    export_data = True,
-    city_id = None,
-    export_file_format = "geojson",
+    link_strategy="largest_to_closest",
+    export_data=True,
+    city_id=None,
+    export_file_format="geojson",
     import_files={},
 ):
     """Create links between components of bicycle networks in cities. How 
@@ -54,7 +54,7 @@ def linkbikenet(
     city_query : str
         Search string for the city that the analysis should be performed on. 
         This is the query used to fetch the data from nominatim.
-    connection_strategy : str, default="largest
+    link_strategy : str, default="largest
         Strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components".
     export_data : bool, optional, default True
         If set to True, data will be saved to a file. The filename is 
@@ -108,7 +108,7 @@ def linkbikenet(
     # check if user input is valid
     if type(city_query) != str:
         raise TypeError("city_name must be a string")
-    if connection_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
+    if link_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
         raise TypeError("Connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
     if type(export_data) is not bool:
         raise TypeError("export_data must be a boolean")
@@ -122,7 +122,7 @@ def linkbikenet(
     # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
     import_files = defaultdict(lambda: None, import_files)
 
-    _print_header(city_query, connection_strategy)
+    _print_header(city_query, link_strategy)
 
     # Get city boundary
     if import_files['city_boundary']:
@@ -200,7 +200,7 @@ def linkbikenet(
     progress_bar.update(1)
     progress_bar.close()
 
-    H, paths_all, pathedges_all, num_comps_added = link_components(connection_strategy, H, G)
+    H, paths_all, pathedges_all, num_comps_added = link_components(link_strategy, H, G)
 
     progress_bar = initialize_progress_bar("Postprocessing data", 3)
     edges_pbi_gdf = graph_edges_to_gdf(H)
@@ -305,7 +305,7 @@ def linkbikenet(
         else:
             city_string = city_id
         export_data_filename = (
-                slugify(city_string) + "-linkbikenet-" + connection_strategy + "." + export_file_format
+                slugify(city_string) + "-linkbikenet-" + link_strategy + "." + export_file_format
         )
 
     if export_data:
@@ -323,7 +323,7 @@ def linkbikenet(
                 progress_bar = initialize_progress_bar("Exporting data", 3, "file")
                 linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)
-                edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+                edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)
                 city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)

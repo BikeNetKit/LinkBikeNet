@@ -14,13 +14,13 @@ import datetime
 pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
 
-def _print_header(city_query, connection_strategy):
+def _print_header(city_query, link_strategy):
     """Print header.
     """
     if not settings.silent:
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
         print("RUNNING LINKBIKENET FOR CITY: " + city_query)
-        print(connection_strategy)
+        print(link_strategy)
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╮")
 
 def _print_footer(export_data, endtime, starttime):
@@ -249,12 +249,12 @@ def graph_edges_to_gdf(G):
     return edges_gdf
 
 
-def link_components(connection_strategy, H, G):
+def link_components(link_strategy, H, G):
     """Link components with the given strategy.
 
     Parameters
     ----------
-    connection_strategy : string
+    link_strategy : string
         Strategy to use for connecting between components.
     H : networkx.Graph
         Graph of bicycle network components.
@@ -300,7 +300,7 @@ def link_components(connection_strategy, H, G):
     paths_all = []
     num_comps_added = []
     comps_remaining = []
-    if connection_strategy == "largest_to_second":
+    if link_strategy == "largest_to_second":
         progress_bar = initialize_progress_bar("Linking components", total, "component")
         for i in range(total):
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
@@ -339,7 +339,7 @@ def link_components(connection_strategy, H, G):
             step += 1
         progress_bar.close()
 
-    elif connection_strategy == "largest_to_closest":
+    elif link_strategy == "largest_to_closest":
         for i in tqdm(
                 range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
@@ -378,7 +378,7 @@ def link_components(connection_strategy, H, G):
             num_comps_added.append(1)
             step += 1
 
-    elif connection_strategy == "closest_components":
+    elif link_strategy == "closest_components":
         for i in tqdm(
                 range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),

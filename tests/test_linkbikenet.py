@@ -16,7 +16,7 @@ def test_linkbikenet_closest_components_case_success_offline1(validation_gdf_fre
     """
     linked_components = lbn.linkbikenet(
         "Frederiksberg", 
-        connection_strategy='closest_components',
+        link_strategy='closest_components',
         import_files={
             'city_boundary': "./tests/test_data/frederiksberg_boundary.geojson",
             'street_network': "./tests/test_data/frederiksberg_streetbike_network.gpkg",
@@ -39,7 +39,7 @@ def test_linkbikenet_largest_to_closest_case_success_offline1(validation_gdf_fre
     """
     linked_components = lbn.linkbikenet(
         "Frederiksberg", 
-        connection_strategy='largest_to_closest',
+        link_strategy='largest_to_closest',
         import_files={
             'city_boundary': "./tests/test_data/frederiksberg_boundary.geojson",
             'street_network': "./tests/test_data/frederiksberg_streetbike_network.gpkg",
@@ -62,7 +62,7 @@ def test_linkbikenet_largest_to_second_case_success_offline1(validation_gdf_fred
     """
     linked_components = lbn.linkbikenet(
         "Frederiksberg", 
-        connection_strategy='largest_to_second',
+        link_strategy='largest_to_second',
         import_files={
             'city_boundary': "./tests/test_data/frederiksberg_boundary.geojson",
             'street_network': "./tests/test_data/frederiksberg_streetbike_network.gpkg",
