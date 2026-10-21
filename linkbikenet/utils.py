@@ -1,12 +1,13 @@
-from . import osm
-from . import settings
-from . import constants
+"""Utility functions for `linkbikenet`."""
+
+from . import constants, osm, settings
 import re
 import osmnx as ox
 import networkx as nx
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+from collections import defaultdict
 from scipy.spatial import cKDTree
 from shapely.geometry import LineString
 from tqdm import tqdm
@@ -14,13 +15,80 @@ import datetime
 pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
 
-def _print_header(city_query, connection_strategy):
+
+def _validate_parameters(
+        city_query,
+        link_strategy,
+        export_data,
+        city_id,
+        import_files,
+    ):
+    """ Check if user parameter input is valid. If not, raise an exception or 
+    warning.
+    
+    Parameters
+    ----------
+    Same as `linkikenet.linkikenet()`
+
+    Returns
+    -------
+    import_files : collections.defaultdict
+        Defaultdict of checked `import_files`.
+    """
+
+    if type(city_query) != str:
+        raise TypeError("city_name must be a string")
+    if link_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
+        raise TypeError("Connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
+    if type(export_data) is not bool:
+        raise TypeError("export_data must be a boolean")
+    if city_id is not None:
+        if type(city_id) is not str:
+            raise TypeError("city_id must be a string")
+    if type(import_files) is not dict:
+        raise TypeError("import_files must be a dictionary")
+    # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
+    import_files = defaultdict(lambda: None, import_files)
+    return import_files
+
+
+def _validate_settings():
+    """ Check if user settings input is valid. If not, raise an exception or 
+    warning.
+
+    Returns
+    -------
+    setting_was_auto : dict
+        Dictionary remembering which setting or constant was set to auto, so 
+        it can be reset to auto in the end.
+    """
+
+    if type(constants._CRS_CALCULATIONS) is not str:
+        raise TypeError("constants._CRS_CALCULATIONS must be a string")
+    if settings.export_file_format not in ["geojson", "gpkg"]:
+        raise ValueError("settings.export_file_format must be 'geojson' or 'gpkg'")
+
+    setting_was_auto = {'crs_calculations': False}
+    # Ask whether constants._CRS_CALCULATIONS was 'auto' ahead of network 
+    # construction, as 'auto' is resolved inside `prepare_nodes_edges()`.
+    if constants._CRS_CALCULATIONS == 'auto':
+        setting_was_auto['crs_calculations'] = True
+    return setting_was_auto
+
+def _reset_auto_settings(setting_was_auto):
+    """Reset settings and constants to auto.
+    """
+    if setting_was_auto['crs_calculations']:
+        constants._CRS_CALCULATIONS = 'auto'
+
+
+def _print_header(city_query, link_strategy):
     """Print header.
     """
     if not settings.silent:
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
         print("RUNNING LINKBIKENET FOR CITY: " + city_query)
-        print(connection_strategy)
+        print(link_strategy)
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╮")
 
 def _print_footer(export_data, endtime, starttime):
@@ -30,10 +98,10 @@ def _print_footer(export_data, endtime, starttime):
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-"+"╯")
         if export_data:
             print("Data exported to "+settings.export_path['results'])
-        if export_data or export_plots:
             print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"-")
         print("FINISHED IN " + str(datetime.timedelta(seconds = round(endtime - starttime))))
         print((constants._PROGRESS_BAR_DESC_LENGTH+constants._PROGRESS_BAR_LENGTH)*"=")
+
 
 def initialize_progress_bar(desc_string, total=1, unit="step"):
     """Initialize tqdm progress bar.
@@ -45,6 +113,7 @@ def initialize_progress_bar(desc_string, total=1, unit="step"):
         bar_format='{l_bar}{bar:'+str(constants._PROGRESS_BAR_LENGTH-7)+'}{r_bar}',
         disable=settings.silent,
     )
+
 
 def import_network(street_network):
     """Import and project a street network from gpkg file
@@ -85,6 +154,7 @@ def import_network(street_network):
 
     return g
 
+
 def import_bike_network(bike_network, import_path=settings.import_path):
     """Import and project a street network from gpkg file
 
@@ -121,27 +191,24 @@ def import_bike_network(bike_network, import_path=settings.import_path):
 
     return h
 
-def resolve_crs_calculations(gdf, crs_projected=settings.crs_projected):
-    """ Resolve settings.crs_projected = 'auto'
+
+def _resolve_crs_calculations(gdf):
+    """Resolve constants._CRS_CALCULATIONS = 'auto'
 
     Parameters
     ----------
     gdf : geopandas.geodataframe.GeoDataFrame
         A geodataframe from which to estimate the UTM CRS
-    crs_projected : str
-        A given CRS, or 'auto'. If 'auto', it is resolved to an estimated UTM.
-        In this case, it also sets `settings.crs_projected` to the UTM.
 
     Returns
     -------
-    crs_projected : str
-        If it was set to 'auto', the estimated UTM, otherwise identical to the
-        input `crs_calculations`.
+    constants._CRS_CALCULATIONS : str
+        If it was set to 'auto', the estimated UTM, otherwise identical to 
+        `constants._CRS_CALCULATIONS`.
     """
-    if crs_projected == 'auto':
-        crs_projected = gdf.estimate_utm_crs()
-        settings.crs_projected = crs_projected
-    return crs_projected
+    if constants._CRS_CALCULATIONS == 'auto':
+        constants._CRS_CALCULATIONS = gdf.estimate_utm_crs()
+    return constants._CRS_CALCULATIONS
 
 
 def assign_pbi_to_edges(g):
@@ -209,6 +276,7 @@ def find_edges_to_drop(g):
     edges_to_drop = list(set(edges_to_drop))
     return edges_to_drop
 
+
 def graph_edges_to_gdf(G):
     """Create a geodataframe with edges attributes from a simple nx graph.
 
@@ -249,12 +317,12 @@ def graph_edges_to_gdf(G):
     return edges_gdf
 
 
-def link_components(connection_strategy, H, G):
+def link_components(link_strategy, H, G):
     """Link components with the given strategy.
 
     Parameters
     ----------
-    connection_strategy : string
+    link_strategy : string
         Strategy to use for connecting between components.
     H : networkx.Graph
         Graph of bicycle network components.
@@ -300,7 +368,7 @@ def link_components(connection_strategy, H, G):
     paths_all = []
     num_comps_added = []
     comps_remaining = []
-    if connection_strategy == "largest_to_second":
+    if link_strategy == "largest_to_second":
         progress_bar = initialize_progress_bar("Linking components", total, "component")
         for i in range(total):
             components_sorted = [H.subgraph(c).copy() for c in sorted(nx.connected_components(H), key=lambda c: sum(
@@ -339,7 +407,7 @@ def link_components(connection_strategy, H, G):
             step += 1
         progress_bar.close()
 
-    elif connection_strategy == "largest_to_closest":
+    elif link_strategy == "largest_to_closest":
         for i in tqdm(
                 range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
@@ -378,7 +446,7 @@ def link_components(connection_strategy, H, G):
             num_comps_added.append(1)
             step += 1
 
-    elif connection_strategy == "closest_components":
+    elif link_strategy == "closest_components":
         for i in tqdm(
                 range(total),
                 desc=("{:<"+str(constants._PROGRESS_BAR_DESC_LENGTH)+"}").format("Linking components"),
@@ -519,6 +587,7 @@ def get_underway_connections(H, pairinfo, components_sorted):
                     connection_points.append(node)
     return components_connected_underway, connection_points
 
+
 def pair_between_largest_and_closest_components(wcc):
     """Find the top `constants.TOP_CLOSEST_COMPONENTS` pairs of nodes 
     connecting the largest component to the geographically nearest remaining 
@@ -580,6 +649,7 @@ def pair_between_largest_and_closest_components(wcc):
     if closest_pairs.empty:
         return closest_pairs
     return closest_pairs.nsmallest(constants.TOP_CLOSEST_COMPONENTS,'distance_eucl') 
+
 
 def pair_between_closest_components(wcc):
     """Find the `constants.TOP_CLOSEST_COMPONENTS` closest pairs of nodes 
@@ -701,6 +771,7 @@ def get_correct_edgetuples(edge_gdf, nodelist):
             edgelist_final.append(tuple([edge_prelim[1], edge_prelim[0]]))
     return edgelist_final
 
+
 def path_to_edges(nodelist):
     """Turn a list of nodes along a path into a list of edges along the path.
 
@@ -774,6 +845,7 @@ def slugify(s):
     s = s.translate(tab)
     return s
 
+
 def calculate_network_statistics(H):
     """Return total network length and largest component length.
 
@@ -808,6 +880,7 @@ def calculate_network_statistics(H):
 
     return total_length, largest_length
 
+
 def mark_joined_component(H, component, step):
     """Mark components when they join the largest connected component.
     
@@ -826,6 +899,7 @@ def mark_joined_component(H, component, step):
     for u, v in H.subgraph(component).edges():
         if "lcc_step" not in H[u][v]:
             H[u][v]["lcc_step"] = step
+
 
 def shortest_path_components(G, pair_components, path):
     """Starting from an initial shortest path between a pair of nodes in two 

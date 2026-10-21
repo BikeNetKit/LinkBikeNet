@@ -1,21 +1,25 @@
+"""Main procedure for running `linkbikenet`."""
+
 # imports
-from . import settings
-from . import constants
+from . import constants, osm, settings
 import os
 import osmnx as ox
 import networkx as nx
 import pandas as pd
 import geopandas as gpd
 import warnings
-from collections import defaultdict
 from tqdm import tqdm
 import time
 pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
 
-from linkbikenet.functions import (
+from linkbikenet.utils import (
     _print_header,
     _print_footer,
+    _reset_auto_settings,
+    _resolve_crs_calculations,
+    _validate_parameters,
+    _validate_settings,
     calculate_network_statistics,
     create_gdf_with_geoms,
     find_edges_to_drop,
@@ -32,7 +36,6 @@ from linkbikenet.functions import (
     import_bike_network,
     assign_pbi_to_edges,
     mark_joined_component,
-    resolve_crs_calculations,
     shortest_path_components,
     shortest_path_components_from_candidates,
     slugify,
@@ -40,26 +43,27 @@ from linkbikenet.functions import (
 
 def linkbikenet(
     city_query,
-    connection_strategy = "largest_to_closest",
-    export_data = True,
-    city_id = None,
-    export_file_format = "geojson",
+    link_strategy='largest_to_closest',
+    export_data=True,
+    city_id=None,
     import_files={},
 ):
     """Create links between components of bicycle networks in cities. How 
-    components are connected depends on the chosen connection strategy.
+    components are connected depends on the chosen link strategy.
 
     Parameters
     ----------
     city_query : str
         Search string for the city that the analysis should be performed on. 
         This is the query used to fetch the data from nominatim.
-    connection_strategy : str, default="largest
-        Strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components".
-    export_data : bool, optional, default True
+    link_strategy : {'largest_to_closest', 'largest_to_second', 'closest_components'}
+        Strategy for linking components. Default is 'largest_to_closest', other 
+        options are 'largest_to_second' and 'closest_components'.
+    export_data : bool, default True
         If set to True, data will be saved to a file. The filename is 
-        [slug].gpkg, where slug is a string id made out of city_query. Existing
-        files are overwritten.
+        ``[slug]-linkbikenet-[link_strategy].[settings.export_file_format]``, 
+        where ``[slug]`` is a string id made out of `city_query` (or `city_id` 
+        if set). Existing files are overwritten.
     city_id : None or str, default None
         If set, the slugified city_id is used in the filename of the data 
         export. For example, a city_id "Athens" will slugify into "athens" in 
@@ -67,11 +71,6 @@ def linkbikenet(
         filename of the data export. It is useful to set a city_id for cities 
         where the city_query is not the city name, for example to set for a 
         city_query "Municipality of Athens" the city_id to "Athens".
-    export_file_format : str, default "geojson"
-        File format for the data export, relevant if export_data set to True. 
-        Default "geojson", also possible "gpkg". If exporting as geojson, 
-        generates extra files for street network and city boundary. If 
-        exporting as gkpg, these are added all in one file as extra layers. 
     import_files: dict, default {}
         The following key:value entries can be set:
 
@@ -102,27 +101,12 @@ def linkbikenet(
     linked_components : geopandas.GeoDataFrame
         Geodataframe with the proposed links, ordered after strategy chosen.
     """
+
     # Setup
     starttime = time.time()
-
-    # check if user input is valid
-    if type(city_query) != str:
-        raise TypeError("city_name must be a string")
-    if connection_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
-        raise TypeError("Connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
-    if type(export_data) is not bool:
-        raise TypeError("export_data must be a boolean")
-    if city_id is not None:
-        if type(city_id) is not str:
-            raise TypeError("city_id must be a string")
-    if export_file_format != "geojson" and export_file_format != "gpkg":
-        raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
-    if type(import_files) is not dict:
-        raise TypeError("import_files must be a dictionary")
-    # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
-    import_files = defaultdict(lambda: None, import_files)
-
-    _print_header(city_query, connection_strategy)
+    setting_was_auto = _validate_settings()
+    import_files = _validate_parameters(city_query,link_strategy,export_data,city_id,import_files)
+    _print_header(city_query, link_strategy)
 
     # Get city boundary
     if import_files['city_boundary']:
@@ -135,7 +119,7 @@ def linkbikenet(
         progress_bar = initialize_progress_bar("Importing network data", 1, "network")
         h = import_bike_network(import_files['bike_network'])
         nodes_h = ox.graph_to_gdfs(h, nodes=True, edges=False, node_geometry=True)
-        proj_crs = resolve_crs_calculations(nodes_h, settings.crs_projected)
+        proj_crs = _resolve_crs_calculations(nodes_h)
         h = ox.project_graph(h, to_crs=proj_crs)
         h = nx.Graph(h)
 
@@ -147,9 +131,6 @@ def linkbikenet(
         ### downloading and preprocessing data from OSM
         progress_bar = initialize_progress_bar("Downloading OSM data", 1, "network")
 
-        ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both",
-                                       "cyclestreet"]
-
         # fetch street network from OSM
         g = ox.graph_from_place(
             city_query, network_type='all_public', simplify=False, retain_all=True
@@ -160,12 +141,12 @@ def linkbikenet(
     progress_bar = initialize_progress_bar("Processing network", 3)
     g = ox.simplify_graph(
         g,
-        edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'],
+        edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'], # To do: Align with osm module
     )
 
     # project graph for distance calculations
     nodes_g = ox.graph_to_gdfs(g, nodes=True, edges=False, node_geometry=True)
-    proj_crs = resolve_crs_calculations(nodes_g, settings.crs_projected)
+    proj_crs = _resolve_crs_calculations(nodes_g)
     g = ox.project_graph(g, to_crs=proj_crs)
 
     progress_bar.update(1)
@@ -174,13 +155,6 @@ def linkbikenet(
     g = assign_pbi_to_edges(g)
 
     progress_bar.update(1)
-
-    # progress_bar = initialize_progress_bar("Drop parallel edges")
-    # # finding parallel edges and dropping them
-    # edges_to_drop = find_edges_to_drop(g)
-    # g.remove_edges_from(edges_to_drop)
-    # progress_bar.update(1)
-    # progress_bar.close()
 
     # Capital-G: the Graph() object we will be working with from now on
     G = nx.Graph(g)
@@ -200,7 +174,7 @@ def linkbikenet(
     progress_bar.update(1)
     progress_bar.close()
 
-    H, paths_all, pathedges_all, num_comps_added = link_components(connection_strategy, H, G)
+    H, paths_all, pathedges_all, num_comps_added = link_components(link_strategy, H, G)
 
     progress_bar = initialize_progress_bar("Postprocessing data", 3)
     edges_pbi_gdf = graph_edges_to_gdf(H)
@@ -286,16 +260,14 @@ def linkbikenet(
     edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
 
     linked_components['ordering'] = linked_components.index
-    
 
-    #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
-    linked_components.to_crs(epsg=4326, inplace=True)
+    linked_components.to_crs(epsg=settings.crs_result, inplace=True)
     if import_files['bike_network'] is not None:
-        edges_pbi_gdf.set_crs(epsg=4326, allow_override=True, inplace=True)
+        edges_pbi_gdf.set_crs(epsg=settings.crs_result, allow_override=True, inplace=True)
     else:
-        edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
+        edges_pbi_gdf.to_crs(epsg=settings.crs_result, inplace=True)
 
     # Generate export data filename
     if export_data:
@@ -305,7 +277,7 @@ def linkbikenet(
         else:
             city_string = city_id
         export_data_filename = (
-                slugify(city_string) + "-linkbikenet-" + connection_strategy + "." + export_file_format
+                slugify(city_string) + "-linkbikenet-" + link_strategy + "." + settings.export_file_format
         )
 
     if export_data:
@@ -318,16 +290,25 @@ def linkbikenet(
                 if p not in keepedgedata:
                     del edges_pbi_gdf[p] 
 
-            city_boundary.to_crs(epsg=4326, inplace=True)
-            if export_file_format == "geojson":
-                progress_bar = initialize_progress_bar("Exporting data", 3, "file")
-                linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
-                edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + connection_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
-                city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
-            elif export_file_format == "gpkg":
+            city_boundary.to_crs(epsg=settings.crs_result, inplace=True)
+            if settings.export_file_format == "geojson":
+                if settings.crs_result == '4326': # Export with RFC7946="YES"
+                    progress_bar = initialize_progress_bar("Exporting data", 3, "file")
+                    linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                    edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                    city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                else:
+                    progress_bar = initialize_progress_bar("Exporting data", 3, "file")
+                    linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON")
+                    progress_bar.update(1)
+                    edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON")
+                    progress_bar.update(1)
+                    city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON")
+                    progress_bar.update(1)
+            elif settings.export_file_format == "gpkg":
                 f = settings.export_path['results'] + export_data_filename
                 if os.path.exists(f):
                     os.remove(f) # mode="w" does not work for to_file with gpkg. It always appends. Therefore, existing file needs to be deleted.
@@ -341,6 +322,7 @@ def linkbikenet(
             progress_bar.close()
 
     # Cleanup, finalize
+    _reset_auto_settings(setting_was_auto)
     endtime = time.time()
     _print_footer(export_data, endtime, starttime)
 

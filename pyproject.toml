@@ -38,6 +38,7 @@ dependencies = [
     "scipy",
     "geojson",
     "tqdm",
+    "bikenetlib",
 ]
 
 [project.urls]

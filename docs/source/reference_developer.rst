@@ -9,10 +9,10 @@ linkbikenet.linkbikenet
 .. automodule:: linkbikenet.linkbikenet
    :members:
 
-linkbikenet.functions
----------------------
+linkbikenet.utils
+-----------------
 
-.. automodule:: linkbikenet.functions
+.. automodule:: linkbikenet.utils
    :members:
    :private-members:
 

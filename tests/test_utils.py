@@ -1,6 +1,6 @@
 import networkx as nx
 import pytest
-from linkbikenet.functions import *
+from linkbikenet.utils import *
 from linkbikenet import constants, settings
 
 constants.TOP_CLOSEST_COMPONENTS = 1
