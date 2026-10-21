@@ -43,22 +43,23 @@ from linkbikenet.utils import (
 
 def linkbikenet(
     city_query,
-    link_strategy="largest_to_closest",
+    link_strategy='largest_to_closest',
     export_data=True,
     city_id=None,
     import_files={},
 ):
     """Create links between components of bicycle networks in cities. How 
-    components are connected depends on the chosen connection strategy.
+    components are connected depends on the chosen link strategy.
 
     Parameters
     ----------
     city_query : str
         Search string for the city that the analysis should be performed on. 
         This is the query used to fetch the data from nominatim.
-    link_strategy : str, default="largest
-        Strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components".
-    export_data : bool, optional, default True
+    link_strategy : {'largest_to_closest', 'largest_to_second', 'closest_components'}
+        Strategy for linking components. Default is 'largest_to_closest', other 
+        options are 'largest_to_second' and 'closest_components'.
+    export_data : bool, default True
         If set to True, data will be saved to a file. The filename is 
         ``[slug]-linkbikenet-[link_strategy].[settings.export_file_format]``, 
         where ``[slug]`` is a string id made out of `city_query` (or `city_id` 
@@ -100,6 +101,7 @@ def linkbikenet(
     linked_components : geopandas.GeoDataFrame
         Geodataframe with the proposed links, ordered after strategy chosen.
     """
+
     # Setup
     starttime = time.time()
     setting_was_auto = _validate_settings()
@@ -258,7 +260,7 @@ def linkbikenet(
     edges_pbi_gdf['length'] = edges_pbi_gdf['length'].astype(int)
 
     linked_components['ordering'] = linked_components.index
-    
+
 
     # Back to unprojected (potentially). No more calculations after here.
     linked_components.to_crs(epsg=settings.crs_result, inplace=True)
