@@ -1,3 +1,5 @@
+"""Utility functions for `linkbikenet`."""
+
 from . import osm
 from . import settings
 from . import constants

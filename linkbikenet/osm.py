@@ -1,4 +1,4 @@
-"""Global constants for `growbikenet` related to OpenStreetMap (OSM). These are 
+"""Global constants for `linkbikenet` related to OpenStreetMap (OSM). These are 
 meant for advanced users only who have a good understanding of OSM tags.
 
 CARPBI_NETWORK_CUSTOM_FILTER : list[str] or None

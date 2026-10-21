@@ -1,3 +1,5 @@
+"""Main procedure for running `linkbikenet`."""
+
 # imports
 from . import settings
 from . import constants
@@ -13,7 +15,7 @@ import time
 pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
 
-from linkbikenet.functions import (
+from linkbikenet.utils import (
     _print_header,
     _print_footer,
     calculate_network_statistics,
@@ -57,8 +59,9 @@ def linkbikenet(
         Strategy to use for connecting between components. Default is "largest_to_second", other options are "largest_to_closest" and "closest_components".
     export_data : bool, optional, default True
         If set to True, data will be saved to a file. The filename is 
-        [slug].gpkg, where slug is a string id made out of city_query. Existing
-        files are overwritten.
+        ``[slug]-linkbikenet-[link_strategy].[settings.export_file_format]``, 
+        where ``[slug]`` is a string id made out of `city_query` (or `city_id` 
+        if set). Existing files are overwritten.
     city_id : None or str, default None
         If set, the slugified city_id is used in the filename of the data 
         export. For example, a city_id "Athens" will slugify into "athens" in 

@@ -15,7 +15,7 @@ from . import constants
 from . import linkbikenet
 from . import osm
 from . import settings
-from . import functions
+from . import utils
 
 __author__ = "LinkBikeNet contributors"
 __author_email__ = "michael@szell.net"

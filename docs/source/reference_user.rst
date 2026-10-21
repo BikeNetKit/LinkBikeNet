@@ -10,11 +10,9 @@ linkbikenet.linkbikenet
 
 .. automodule:: linkbikenet.linkbikenet
    :members:
-   :no-index:
 
 linkbikenet.settings
 --------------------
 
 .. automodule:: linkbikenet.settings
    :members:
-   :no-index:
