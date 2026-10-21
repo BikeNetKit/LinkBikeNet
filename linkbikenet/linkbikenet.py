@@ -9,7 +9,6 @@ import networkx as nx
 import pandas as pd
 import geopandas as gpd
 import warnings
-from collections import defaultdict
 from tqdm import tqdm
 import time
 pd.set_option('display.max_columns', None) # for debugging
@@ -18,6 +17,10 @@ import sys  # noqa: F401, use sys.exit() for debugging
 from linkbikenet.utils import (
     _print_header,
     _print_footer,
+    _reset_auto_settings,
+    _resolve_crs_calculations,
+    _validate_parameters,
+    _validate_settings,
     calculate_network_statistics,
     create_gdf_with_geoms,
     find_edges_to_drop,
@@ -34,7 +37,6 @@ from linkbikenet.utils import (
     import_bike_network,
     assign_pbi_to_edges,
     mark_joined_component,
-    resolve_crs_calculations,
     shortest_path_components,
     shortest_path_components_from_candidates,
     slugify,
@@ -101,24 +103,8 @@ def linkbikenet(
     """
     # Setup
     starttime = time.time()
-
-    # check if user input is valid
-    if type(city_query) != str:
-        raise TypeError("city_name must be a string")
-    if link_strategy not in ['largest_to_second', 'largest_to_closest', 'closest_components']:
-        raise TypeError("Connection_strategy must be 'largest_to_second', 'largest_to_closest' or 'closest_components'")
-    if type(export_data) is not bool:
-        raise TypeError("export_data must be a boolean")
-    if city_id is not None:
-        if type(city_id) is not str:
-            raise TypeError("city_id must be a string")
-    if settings.export_file_format != "geojson" and settings.export_file_format != "gpkg":
-        raise ValueError("settings.export_file_format must be 'geojson' or 'gpkg'")
-    if type(import_files) is not dict:
-        raise TypeError("import_files must be a dictionary")
-    # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
-    import_files = defaultdict(lambda: None, import_files)
-
+    setting_was_auto = _validate_settings()
+    import_files = _validate_parameters(city_query,link_strategy,export_data,city_id,import_files)
     _print_header(city_query, link_strategy)
 
     # Get city boundary
@@ -132,7 +118,7 @@ def linkbikenet(
         progress_bar = initialize_progress_bar("Importing network data", 1, "network")
         h = import_bike_network(import_files['bike_network'])
         nodes_h = ox.graph_to_gdfs(h, nodes=True, edges=False, node_geometry=True)
-        proj_crs = resolve_crs_calculations(nodes_h, settings.crs_projected)
+        proj_crs = _resolve_crs_calculations(nodes_h)
         h = ox.project_graph(h, to_crs=proj_crs)
         h = nx.Graph(h)
 
@@ -162,7 +148,7 @@ def linkbikenet(
 
     # project graph for distance calculations
     nodes_g = ox.graph_to_gdfs(g, nodes=True, edges=False, node_geometry=True)
-    proj_crs = resolve_crs_calculations(nodes_g, settings.crs_projected)
+    proj_crs = _resolve_crs_calculations(nodes_g)
     g = ox.project_graph(g, to_crs=proj_crs)
 
     progress_bar.update(1)
@@ -288,11 +274,11 @@ def linkbikenet(
     #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
-    linked_components.to_crs(epsg=4326, inplace=True)
+    linked_components.to_crs(epsg=settings.crs_result, inplace=True)
     if import_files['bike_network'] is not None:
-        edges_pbi_gdf.set_crs(epsg=4326, allow_override=True, inplace=True)
+        edges_pbi_gdf.set_crs(epsg=settings.crs_result, allow_override=True, inplace=True)
     else:
-        edges_pbi_gdf.to_crs(epsg=4326, inplace=True)
+        edges_pbi_gdf.to_crs(epsg=settings.crs_result, inplace=True)
 
     # Generate export data filename
     if export_data:
@@ -315,15 +301,24 @@ def linkbikenet(
                 if p not in keepedgedata:
                     del edges_pbi_gdf[p] 
 
-            city_boundary.to_crs(epsg=4326, inplace=True)
+            city_boundary.to_crs(epsg=settings.crs_result, inplace=True)
             if settings.export_file_format == "geojson":
-                progress_bar = initialize_progress_bar("Exporting data", 3, "file")
-                linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
-                edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
-                city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
-                progress_bar.update(1)
+                if settings.crs_result == '4326': # Export with RFC7946="YES"
+                    progress_bar = initialize_progress_bar("Exporting data", 3, "file")
+                    linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                    edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                    city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
+                    progress_bar.update(1)
+                else:
+                    progress_bar = initialize_progress_bar("Exporting data", 3, "file")
+                    linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON")
+                    progress_bar.update(1)
+                    edges_pbi_gdf.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-" + link_strategy + "-existing_bike_network.geojson", driver="GeoJSON")
+                    progress_bar.update(1)
+                    city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON")
+                    progress_bar.update(1)
             elif settings.export_file_format == "gpkg":
                 f = settings.export_path['results'] + export_data_filename
                 if os.path.exists(f):
@@ -338,6 +333,7 @@ def linkbikenet(
             progress_bar.close()
 
     # Cleanup, finalize
+    _reset_auto_settings(setting_was_auto)
     endtime = time.time()
     _print_footer(export_data, endtime, starttime)
 
