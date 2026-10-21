@@ -1,8 +1,7 @@
 """Main procedure for running `linkbikenet`."""
 
 # imports
-from . import settings
-from . import constants
+from . import constants, osm, settings
 import os
 import osmnx as ox
 import networkx as nx
@@ -130,9 +129,6 @@ def linkbikenet(
         ### downloading and preprocessing data from OSM
         progress_bar = initialize_progress_bar("Downloading OSM data", 1, "network")
 
-        ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both",
-                                       "cyclestreet"]
-
         # fetch street network from OSM
         g = ox.graph_from_place(
             city_query, network_type='all_public', simplify=False, retain_all=True
@@ -143,7 +139,7 @@ def linkbikenet(
     progress_bar = initialize_progress_bar("Processing network", 3)
     g = ox.simplify_graph(
         g,
-        edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'],
+        edge_attrs_differ=['cycleway', 'highway', 'cycleway:right', 'cycleway:left', 'cycleway:both'], # To do: Align with osm module
     )
 
     # project graph for distance calculations
@@ -157,13 +153,6 @@ def linkbikenet(
     g = assign_pbi_to_edges(g)
 
     progress_bar.update(1)
-
-    # progress_bar = initialize_progress_bar("Drop parallel edges")
-    # # finding parallel edges and dropping them
-    # edges_to_drop = find_edges_to_drop(g)
-    # g.remove_edges_from(edges_to_drop)
-    # progress_bar.update(1)
-    # progress_bar.close()
 
     # Capital-G: the Graph() object we will be working with from now on
     G = nx.Graph(g)
@@ -270,8 +259,6 @@ def linkbikenet(
 
     linked_components['ordering'] = linked_components.index
     
-
-    #edges_pbi_gdf = edges_gdf[edges_gdf["pbi"] == 1]
 
     # Back to unprojected (potentially). No more calculations after here.
     linked_components.to_crs(epsg=settings.crs_result, inplace=True)

@@ -1,8 +1,6 @@
 """Utility functions for `linkbikenet`."""
 
-from . import osm
-from . import settings
-from . import constants
+from . import constants, osm, settings
 import re
 import osmnx as ox
 import networkx as nx
