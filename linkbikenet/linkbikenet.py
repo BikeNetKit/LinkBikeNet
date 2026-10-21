@@ -43,7 +43,6 @@ def linkbikenet(
     link_strategy="largest_to_closest",
     export_data=True,
     city_id=None,
-    export_file_format="geojson",
     import_files={},
 ):
     """Create links between components of bicycle networks in cities. How 
@@ -67,11 +66,6 @@ def linkbikenet(
         filename of the data export. It is useful to set a city_id for cities 
         where the city_query is not the city name, for example to set for a 
         city_query "Municipality of Athens" the city_id to "Athens".
-    export_file_format : str, default "geojson"
-        File format for the data export, relevant if export_data set to True. 
-        Default "geojson", also possible "gpkg". If exporting as geojson, 
-        generates extra files for street network and city boundary. If 
-        exporting as gkpg, these are added all in one file as extra layers. 
     import_files: dict, default {}
         The following key:value entries can be set:
 
@@ -115,8 +109,8 @@ def linkbikenet(
     if city_id is not None:
         if type(city_id) is not str:
             raise TypeError("city_id must be a string")
-    if export_file_format != "geojson" and export_file_format != "gpkg":
-        raise ValueError("export_file_format must be 'geojson' or 'gpkg'")
+    if settings.export_file_format != "geojson" and settings.export_file_format != "gpkg":
+        raise ValueError("settings.export_file_format must be 'geojson' or 'gpkg'")
     if type(import_files) is not dict:
         raise TypeError("import_files must be a dictionary")
     # Prepare special case import_files. Turn it into a defaultdict where missing keys are None.
@@ -305,7 +299,7 @@ def linkbikenet(
         else:
             city_string = city_id
         export_data_filename = (
-                slugify(city_string) + "-linkbikenet-" + link_strategy + "." + export_file_format
+                slugify(city_string) + "-linkbikenet-" + link_strategy + "." + settings.export_file_format
         )
 
     if export_data:
@@ -319,7 +313,7 @@ def linkbikenet(
                     del edges_pbi_gdf[p] 
 
             city_boundary.to_crs(epsg=4326, inplace=True)
-            if export_file_format == "geojson":
+            if settings.export_file_format == "geojson":
                 progress_bar = initialize_progress_bar("Exporting data", 3, "file")
                 linked_components.to_file(settings.export_path['results'] + export_data_filename, driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)
@@ -327,7 +321,7 @@ def linkbikenet(
                 progress_bar.update(1)
                 city_boundary.to_file(settings.export_path['results'] + slugify(city_string) + "-linkbikenet-city_boundary.geojson", driver="GeoJSON", RFC7946="YES")
                 progress_bar.update(1)
-            elif export_file_format == "gpkg":
+            elif settings.export_file_format == "gpkg":
                 f = settings.export_path['results'] + export_data_filename
                 if os.path.exists(f):
                     os.remove(f) # mode="w" does not work for to_file with gpkg. It always appends. Therefore, existing file needs to be deleted.
