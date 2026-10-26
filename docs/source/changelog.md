@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 0.10.0 (2026-10-26)
+
+- ♻️ Established naming parity with GrowBikeNet
+- ♻️ Renamed several parameters/constants
+- ➕ Added bikenetlib dependency
+- 📄 Polished docstrings
+- 🐛 Fixed removing export_plots
+
 ## Version 0.9.0 (2026-10-13)
 
 - ⬆️ Added Python 3.15 support
