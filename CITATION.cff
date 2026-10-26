@@ -9,8 +9,8 @@ authors:
 - family-names: "Natera Orozco"
   given-names: "Luis Guillermo"
 title: "LinkBikeNet"
-version: 0.9.0
-date-released: 2026-10-13
+version: 0.10.0
+date-released: 2026-10-26
 url: "https://github.com/BikeNetKit/LinkBikeNet"
 preferred-citation:
   type: article
