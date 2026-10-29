@@ -1,7 +1,7 @@
 """Main procedure for running `linkbikenet`."""
 
 # imports
-from . import constants, osm, settings
+from . import constants, osm, settings, _overpass
 import os
 import osmnx as ox
 import networkx as nx
