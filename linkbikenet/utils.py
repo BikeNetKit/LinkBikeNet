@@ -1,6 +1,6 @@
 """Utility functions for `linkbikenet`."""
 
-from . import constants, osm, settings
+from . import constants, osm, settings, _overpass
 import re
 import osmnx as ox
 import networkx as nx
@@ -539,7 +539,7 @@ def pair_between_largest_components(G, wcc):
         dist, idx = tree.query(coord)
         if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
             closest_pairs.loc[len(closest_pairs)] = [n1, nodes2[idx], dist, G1, G2]
-            closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+            closest_pairs = closest_pairs.sort_values(by=['distance_eucl'])
             best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
         elif dist < best_topn_distance: # Append only if better than top N
             new_row = pd.DataFrame({
@@ -632,7 +632,7 @@ def pair_between_largest_and_closest_components(wcc):
         #     continue
         if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
             closest_pairs.loc[len(closest_pairs)] = [lcc_nodes[indices[k]], comp_nodes[k], float(distances[k]), lcc, comp]
-            closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+            closest_pairs = closest_pairs.sort_values(by=['distance_eucl'])
             best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
         elif distances[k] < best_topn_distance: # Append only if better than top N
             new_row = pd.DataFrame({
@@ -693,7 +693,7 @@ def pair_between_closest_components(wcc):
             k = np.argmin(distances)
             if len(closest_pairs) < constants.TOP_CLOSEST_COMPONENTS: # Start filling up
                 closest_pairs.loc[len(closest_pairs)] = [nodes1[indices[k]], nodes2[k], distances[k], lcc, comp]
-                closest_pairs.sort_values(by=['distance_eucl'], inplace=True)
+                closest_pairs = closest_pairs.sort_values(by=['distance_eucl'])
                 best_topn_distance = closest_pairs['distance_eucl'].iloc[-1]
             elif distances[k] < best_topn_distance: # Append only if better than top N
                 new_row = pd.DataFrame({
