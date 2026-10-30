@@ -8,6 +8,8 @@ LinkBikeNet |version| documentation
 
 The Python package ``linkbikenet`` finds links between the disconnected components in a city's bicycle network. You can download street and bike network data with a single line of code, simulate different bicycle network linking scenarios, and export and plot the resulting prioritized linking steps. It is hosted on `Github <https://github.com/BikeNetKit/LinkBikeNet>`__, part of `BikeNetKit <https://bikenetkit.org>`__.
 
+|Example Budapest|
+
 LinkBikeNet is a decision support tool for urban planners. It is also useful for proactive citizens to help inform their city about data-driven improvements, and it aims to foster research on bicycle networks.
 
 When to use
@@ -55,6 +57,8 @@ and the EU HORIZON grant JUST STREETS.
 Developed by
 |NERDS|
 
+.. |Example Budapest| image:: _static/linkbikenet_animated.gif
+   :target: https://bikenetkit.org/linkbikenet/budapest_hu
 .. |Innovation Fund Denmark| image:: _static/logo_innovationfund.png
    :target: https://innovationsfonden.dk/en
 .. |European Union| image:: _static/logo_eu.png

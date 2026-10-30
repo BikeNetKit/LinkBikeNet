@@ -9,7 +9,7 @@
 
 The Python package `linkbikenet` finds links between the disconnected components in a city's bicycle network. You can download street and bike network data with a single line of code, simulate different bicycle network linking scenarios, and export and plot the resulting prioritized linking steps.
 
-[![Example Budapest](https://github.com/BikeNetKit/LinkBikeNet/raw/main/docs/source/_static/linkbikenet-budapest.gif)](https://bikenetkit.org/linkbikenet)
+[![Example Budapest](https://github.com/BikeNetKit/LinkBikeNet/raw/main/docs/source/_static/linkbikenet_animated.gif)](https://bikenetkit.org/linkbikenet/budapest_hu)
 
 LinkBikeNet is a decision support tool for urban planners. It is also useful for proactive citizens to create a compelling vision for urban cycling in their city, and it aims to foster research on bicycle networks. 
 
