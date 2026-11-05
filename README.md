@@ -39,7 +39,8 @@ We provide a minimum working example in two formats:
 - Jupyter notebook ([examples/mwe.ipynb](examples/mwe.ipynb))
 
 ## Docs
-Find more information in our docs: [https://docs.bikenetkit.org/LinkBikeNet/](https://docs.bikenetkit.org/LinkBikeNet/)
+Find more information in our docs: [https://docs.bikenetkit.org/LinkBikeNet/](https://docs.bikenetkit.org/LinkBikeNet/)  
+See also our [Frequently Asked Questions](https://faq.bikenetkit.org).
 
 ## Origin
 The source code builds on [the code from the research paper](https://github.com/nateraluis/bicycle-network-growth) _Data-driven strategies for optimal bicycle network growth_.
