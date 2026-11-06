@@ -1,9 +1,41 @@
 import networkx as nx
 import pytest
-from linkbikenet.utils import *
+from linkbikenet.utils import (
+    _validate_parameters,
+    _validate_settings,
+    pair_between_largest_components,
+    pair_between_largest_and_closest_components,
+    pair_between_closest_components
+)
 from linkbikenet import constants, settings
 
 constants.TOP_CLOSEST_COMPONENTS = 1
+
+def test_validate_parameters():
+    with pytest.raises(TypeError):
+        _validate_parameters(city_query=7, link_strategy='largest_to_second', export_data=False, city_id=None, import_files={})
+    with pytest.raises(TypeError):
+        _validate_parameters(city_query='Budapest', link_strategy='test', export_data=False, city_id=None,
+                             import_files={})
+    with pytest.raises(TypeError):
+        _validate_parameters(city_query='Budapest', link_strategy='largest_to_second', export_data=7, city_id=None,
+                             import_files={})
+    with pytest.raises(TypeError):
+        _validate_parameters(city_query='Budapest', link_strategy='largest_to_second', export_data=False, city_id=7,
+                             import_files={})
+    with pytest.raises(TypeError):
+        _validate_parameters(city_query='Budapest', link_strategy='largest_to_second', export_data=False, city_id=None,
+                             import_files=7)
+
+def test_validate_settings():
+    constants._CRS_CALCULATIONS = 7
+    with pytest.raises(TypeError):
+        _validate_settings()
+    constants._CRS_CALCULATIONS = 'auto'
+    settings.export_file_format = 'test'
+    with pytest.raises(ValueError):
+        _validate_settings()
+    settings.export_file_format = 'gpkg'
 
 @pytest.fixture
 def create_test_components_largest():
