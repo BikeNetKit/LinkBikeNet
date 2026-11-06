@@ -45,13 +45,27 @@ See also our [Frequently Asked Questions](https://faq.bikenetkit.org).
 ## Origin
 The source code builds on [the code from the research paper](https://github.com/nateraluis/bicycle-network-growth) _Data-driven strategies for optimal bicycle network growth_.
 
-**Publication**: [https://doi.org/10.1098/rsos.201130](https://doi.org/10.1098/rsos.201130)
-
 ## How to cite
 If you use LinkBikeNet, please cite the paper:
 
 > L.G. Natera Orozco, F. Battiston, G. Iñiguez, M. Szell. Data-driven strategies for optimal bicycle network growth. Royal Society Open Science 7:201130 (2020)
 > DOI: [10.1098/rsos.201130](https://doi.org/10.1098/rsos.201130)
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@article{nateraorozco2020dso,
+  title = {Data-driven strategies for optimal bicycle network growth},
+  author = {Natera Orozco, Luis Guillermo and Battiston, Federico and I{\~n}iguez, Gerardo and Szell, Michael},
+  journal = {Royal Society Open Science},
+  year = {2020},
+  volume = {7},
+  number = {201130},
+  doi = {10.1098/rsos.201130}
+}
+```
+</details>
 
 ## Supported by
 Development of BikeNetKit/LinkBikeNet is supported by the [Innovation Fund Denmark](https://innovationsfonden.dk/en) and the EU HORIZON project [JUST STREETS](https://www.just-streets.eu).
