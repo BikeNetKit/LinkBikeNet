@@ -115,7 +115,7 @@ def initialize_progress_bar(desc_string, total=1, unit="step"):
     )
 
 
-def import_network(street_network):
+def import_network(street_network, import_path=settings.import_path):
     """Import and project a street network from gpkg file
 
     For all edges between a pair of nodes u and v there must be one edge with key 0.
@@ -126,6 +126,8 @@ def import_network(street_network):
         The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving its undirected version via ox.io.save_graph_geopackage(). For example:
         >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
         >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg")
+    import_path : str, default settings.import_path
+        Path to import files.
 
     Returns
     -------
