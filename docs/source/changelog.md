@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 0.10.1 (2026-11-12)
+
+- 🐛 Fixed a critical bug about bikenetlib not being loaded
+- ✅ Increased test coverage
+- 👷 Added `_overpass` test
+
+
 ## Version 0.10.0 (2026-10-26)
 
 - ♻️ Established naming parity with GrowBikeNet
@@ -7,6 +14,7 @@
 - ➕ Added bikenetlib dependency
 - 📄 Polished docstrings
 - 🐛 Fixed removing export_plots
+
 
 ## Version 0.9.0 (2026-10-13)
 
@@ -18,11 +26,13 @@
 - ♻️ Refactored pbi assignment, getting rid of config
 - ♻️ Refactored osm constants into new osm module, preparing for BikeNetLib
 
+
 ## Version 0.8.4 (2026-10-09)
 
 - 🐛 Accounted for disconnected components
 - ✅ Added main linkbikenet tests
 - 🥅 Implemented catching of error from too few components
+
 
 ## Version 0.8.3 (2026-10-05)
 
@@ -30,15 +40,18 @@
 - 🐛 Accounted for all unintended connected components
 - ♻️ Refactored component linking
 
+
 ## Version 0.8.2 (2026-10-01)
 
 - 📄 Added missing license file
 - 🐛 Removed motor_vehicle condition from pbi mapping
 
+
 ## Version 0.8.1 (2026-09-30)
 
 - 🐛 Fixed L2C crashing before 100%
 - 💄 Polished tqdm table
+
 
 ## Version 0.8.0 (2026-09-29)
 
@@ -50,18 +63,22 @@
 - ✨ Added link_length and num_comps_added fields
 - 💄 Finished styling and polishing tqdm progress bars
 
+
 ## Version 0.7.2 (2026-09-25)
 
 - ✨ added boundary file import
 - ✨ added tqdm progress bars
 
+
 ## Version 0.7.1 (2026-09-07)
 
 - 🐛 remove import path from function definition
 
+
 ## Version 0.7.0 (2026-09-07)
 
 - 🐛 implemented automatic crs matching to ensure correct edge lengths
+
 
 ## Version 0.6.0 (2026-08-19)
 
@@ -69,6 +86,7 @@
 - ✨ added import option for street network
 - ✨ added network connectivity metrics to output and changed file naming
 - 🔧 added settings.py
+
 
 ## Version 0.5.0 (2026-07-27)
 
