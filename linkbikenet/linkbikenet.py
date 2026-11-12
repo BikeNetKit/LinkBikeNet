@@ -1,6 +1,7 @@
 """Main procedure for running `linkbikenet`."""
 
 # imports
+import bikenetlib as bnl
 from . import constants, osm, settings, _overpass
 import os
 import osmnx as ox
