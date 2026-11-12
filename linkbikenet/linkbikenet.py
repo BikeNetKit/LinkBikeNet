@@ -117,7 +117,7 @@ def linkbikenet(
 
     if import_files['bike_network'] is not None:
         progress_bar = initialize_progress_bar("Importing network data", 1, "network")
-        h = import_bike_network(import_files['bike_network'])
+        h = import_bike_network(import_files['bike_network'], import_path=settings.import_path)
         nodes_h = ox.graph_to_gdfs(h, nodes=True, edges=False, node_geometry=True)
         proj_crs = _resolve_crs_calculations(nodes_h)
         h = ox.project_graph(h, to_crs=proj_crs)
@@ -125,7 +125,7 @@ def linkbikenet(
 
     if import_files['street_network'] is not None:
         progress_bar = initialize_progress_bar("Importing network data", 1, "network")
-        g = import_network(import_files['street_network'])
+        g = import_network(import_files['street_network'], import_path=settings.import_path)
 
     else:
         ### downloading and preprocessing data from OSM
