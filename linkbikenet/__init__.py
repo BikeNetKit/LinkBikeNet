@@ -13,7 +13,6 @@ from importlib.metadata import PackageNotFoundError, version
 from linkbikenet.linkbikenet import linkbikenet
 from . import constants
 from . import linkbikenet
-from . import osm
 from . import settings
 from . import utils
 

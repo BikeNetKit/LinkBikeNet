@@ -21,9 +21,7 @@ dependencies:
   - pre-commit
   - jupyterlab
   - pixi-kernel
-  - pip:
-      # not available via conda-forge:
-      - sphinx-copybutton
-      - sphinxext-opengraph
-      - furo
-      - linkbikenet
+  - sphinx-copybutton
+  - sphinxext-opengraph
+  - furo
+  - linkbikenet
