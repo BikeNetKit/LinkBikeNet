@@ -2,7 +2,7 @@
 
 # imports
 import bikenetlib as bnl
-from . import constants, osm, settings, _overpass
+from . import constants, settings, _overpass
 import os
 import osmnx as ox
 import networkx as nx
@@ -83,18 +83,17 @@ def linkbikenet(
         - 'street_network' : None or str, default None
             If not set to None, the street network is loaded from this file. 
             Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes 
-            and edges, with the structure that an undirected osmnx street 
+            and edges, with the structure that a osmnx street 
             network g has after saved via ox.io.save_graph_geopackage(). 
             For example:
 
             >>> ox.settings.useful_tags_way = ["highway", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both", "cyclestreet"]
             >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
-            >>> g = nx.MultiGraph(ox.convert.to_digraph(g))
             >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg")
         - 'bike_network' : None or str, default None
             If not set to None, the existing bike network is loaded from this 
             file. Must be a gpkg file in unprojected crs EPSG:4326 with layers 
-            nodes and edges, with the structure that an undirected osmnx bike 
+            nodes and edges, with the structure that an osmnx bike 
             network has after saved via `ox.io.save_graph_geopackage()`.
     
     Returns

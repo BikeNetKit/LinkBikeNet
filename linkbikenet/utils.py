@@ -1,6 +1,6 @@
 """Utility functions for `linkbikenet`."""
 
-from . import constants, osm, settings, _overpass
+from . import constants, settings, _overpass
 import re
 import osmnx as ox
 import networkx as nx
@@ -14,6 +14,7 @@ from tqdm import tqdm
 import datetime
 pd.set_option('display.max_columns', None) # for debugging
 import sys  # noqa: F401, use sys.exit() for debugging
+import bikenetlib as bnl
 
 
 def _validate_parameters(
@@ -123,7 +124,8 @@ def import_network(street_network, import_path=settings.import_path):
     Parameters
     ----------
     street_network : str
-        The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving its undirected version via ox.io.save_graph_geopackage(). For example:
+        The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving it via ox.io.save_graph_geopackage(). For example:
+
         >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
         >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg")
     import_path : str, default settings.import_path
@@ -132,13 +134,13 @@ def import_network(street_network, import_path=settings.import_path):
     Returns
     -------
     nodes : geopandas.geodataframe.GeoDataFrame
-        Extracted OSM nodes, projected
+        Extracted OSM nodes, projected.
     edges : geopandas.geodataframe.GeoDataFrame
-        Extracted OSM edges, projected
+        Extracted OSM edges, projected.
     g_undir : networkx.classes.multigraph.MultiGraph
-        Extracted networkX graph, undirected
+        Extracted networkX graph.
     city_boundary_gdf : geopandas.geodataframe.GeoDataFrame
-        Convex hull of the street network
+        Convex hull of the street network.
     """
 
     nodes = gpd.read_file(settings.import_path+street_network, layer='nodes')
@@ -165,7 +167,8 @@ def import_bike_network(bike_network, import_path=settings.import_path):
     Parameters
     ----------
     bike_network : str
-        The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving its undirected version via ox.io.save_graph_geopackage(). For example:
+        The street network will be loaded from this file. Must be a gpkg file in unprojected crs EPSG:4326 with layers nodes and edges, with the structure that a osmnx street network g has after saving it via ox.io.save_graph_geopackage(). For example:
+        
         >>> g = ox.graph_from_place("Barcelona", network_type='all_public', simplify=False, retain_all=True)
         >>> g = nx.MultiGraph(ox.convert.to_digraph(g))
         >>> ox.io.save_graph_geopackage(g, "Barcelona_streets.gpkg")
@@ -229,13 +232,13 @@ def assign_pbi_to_edges(g):
     """
     for edge in g.edges(keys=True):
         assigned_pbi = 0
-        for tag in osm.PBI_DICT:
-            if g.edges[edge].get(tag) in osm.PBI_DICT[tag]:
+        for tag in bnl.osm.PBI_DICT:
+            if g.edges[edge].get(tag) in bnl.osm.PBI_DICT[tag]:
                 assigned_pbi = 1
         if not assigned_pbi: # Check if the edge fulfills a subcriterion
-            for tag in osm.PBI_DICT_SUB:
-                subtag = list(osm.PBI_DICT_SUB[tag][1].keys())[0]
-                if g.edges[edge].get(tag) in osm.PBI_DICT_SUB[tag][0] and g.edges[edge].get(subtag) in osm.PBI_DICT_SUB[tag][1][subtag] and g.edges[edge].get("access") != 'private':
+            for tag in bnl.osm.PBI_DICT_SUB:
+                subtag = list(bnl.osm.PBI_DICT_SUB[tag][1].keys())[0]
+                if g.edges[edge].get(tag) in bnl.osm.PBI_DICT_SUB[tag][0] and g.edges[edge].get(subtag) in bnl.osm.PBI_DICT_SUB[tag][1][subtag] and g.edges[edge].get("access") != 'private':
                     assigned_pbi = 1
         g.edges[edge]["pbi"] = assigned_pbi
 
